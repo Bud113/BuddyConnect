@@ -1,7 +1,7 @@
 
 {
-  "version": "8.1.1",
-  "url": "https://github.com/Bud113/BuddyConnect/releases/download/v8.1.1/BuddyConnect.exe",
-  "sha256": "B7D78BAEBBA3F6005292D3D92C2ADBE719890E78D5A700211499D6FDD1E1EFB5",
-  "notes": "Buddy Connect v8.1.1 bug fixes"
+  "version": "8.2.1",
+  "url": "https://github.com/Bud113/BuddyConnect/releases/download/v8.2.1/BuddyConnect.exe",
+  "sha256": "541292DC357F679FF66F7B77E2A3CD9534818B2B456A79CF7468ACD0E0838011",
+  "notes": "Buddy Connect v8.2.1 visual updates."
 }
