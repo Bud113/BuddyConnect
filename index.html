@@ -1,0 +1,603 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Buddy OS Simulator</title><style>:root{font-family:system-ui,Segoe UI,sans-serif;color:#eaf1ff;background:#10151f}body{margin:0;padding:22px}main{max-width:930px;margin:auto}h1{margin:0 0 4px}.muted{color:#9caec5}.layout{display:flex;gap:24px;flex-wrap:wrap;margin-top:20px}.screen-wrap{flex:1 1 480px}.screen{position:relative;width:100%;aspect-ratio:3/2;background:#090e18;border:9px solid #30394a;border-radius:23px;overflow:hidden;touch-action:pan-y;cursor:pointer;box-sizing:border-box}canvas{width:100%;height:100%;display:block}.hint{font-size:13px;color:#a6b4c9;margin-top:8px}.panel{flex:1 1 265px;background:#1b2433;padding:20px;border-radius:16px}label{display:block;margin:13px 0 5px}input,select,button{font:inherit}input[type=text],select{box-sizing:border-box;width:100%;padding:9px;border:1px solid #506078;border-radius:9px;background:#101825;color:white}input[type=color]{height:38px;width:75px;border:0;background:transparent}button{background:#29435c;color:white;border:1px solid #55748e;padding:9px 12px;border-radius:9px;cursor:pointer;margin:4px 4px 4px 0}button:hover{background:#3b5875}.switch{display:flex;align-items:center;gap:10px;margin:13px 0}.switch input{width:18px;height:18px}.small{font-size:13px}.chip{display:inline-block;padding:5px 9px;background:#253448;border-radius:7px;margin-top:7px}#status{color:#8dd7a9}.screen-app-panel{position:absolute;inset:0;z-index:2;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;background:#090e18;padding:10px 17px 16px;cursor:default;font-size:13px}.screen-app-panel[hidden]{display:none}.screen-app-panel h3{font-size:17px;margin:0 0 8px}.screen-app-panel input,.screen-app-panel textarea{max-width:100%;font-size:13px}.screen-app-panel button{padding:7px 10px;font-size:13px}.screen-app-panel .app-close{position:sticky;top:0;float:right;z-index:1;background:#29435c}.screen-app-panel label{margin:7px 0 3px}.reminder-create{position:absolute;inset:0;background:#090e18;padding:14px 22px;box-sizing:border-box;z-index:4;overflow:auto;cursor:default}.reminder-create[hidden]{display:none}.create-header{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#91dfff;font-size:17px}.create-header button{font-size:13px;margin:0;padding:6px 10px}.create-header span{width:54px}.reminder-create form{max-width:370px;margin:10px auto}.reminder-create label{font-size:13px;margin:8px 0 4px}.reminder-create input{width:100%;box-sizing:border-box;padding:9px;background:#101825;color:#fff;border:1px solid #506078;border-radius:8px;font-size:14px}.reminder-save{width:100%;margin-top:12px;background:#235c77}.date-picker-target{display:block;cursor:pointer;touch-action:manipulation}.date-picker-target input{cursor:pointer;pointer-events:auto;touch-action:manipulation}.reminder-create form{margin-top:6px}.reminder-create input{padding:7px}.reminder-create label{margin:5px 0 3px}
+/* Self-contained 480x320 touch keyboard and date/time picker. */
+.touch-overlay{position:absolute;inset:0;z-index:12;background:#090e18;box-sizing:border-box;padding:8px 12px;color:#eaf1ff;cursor:default;display:flex;flex-direction:column;gap:5px;font-size:13px}
+.touch-overlay[hidden]{display:none}.touch-top{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}.touch-top button{margin:0;padding:4px 10px;font-size:12px}.touch-preview{border:1px solid #56748d;border-radius:7px;background:#111e2c;padding:6px 9px;min-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}.touch-keys{display:flex;flex-direction:column;gap:4px;flex:1;min-height:0}.touch-key-row{display:flex;justify-content:center;gap:4px;flex:1;min-height:0}.touch-key{flex:1;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;background:#263a52;border:1px solid #506c87;border-radius:6px;color:#fff;font-size:15px!important;touch-action:manipulation}.touch-key.wide{flex:1.5}.touch-key.space{flex:4}.touch-key:active{background:#4381a0}
+.picker-header{display:flex;align-items:center;justify-content:space-between;gap:7px}.picker-header button,.picker-grid button,.picker-time button{margin:0;padding:3px 5px;font-size:12px}.picker-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;flex:1;min-height:0}.picker-grid button{min-width:0;min-height:0;background:#1c3046;border:1px solid #314b61;border-radius:5px}.picker-grid button.selected{background:#3383a5;border-color:#92e1ff}.picker-grid button.other{opacity:.3}.picker-week{font-size:10px;text-align:center;color:#9cb3c7}.picker-time{display:flex;align-items:center;justify-content:center;gap:7px;flex-shrink:0}.picker-time button{min-width:29px}.picker-time strong{font-size:16px;min-width:23px;text-align:center}.picker-confirm{margin:0!important;padding:5px!important;font-size:13px!important;flex-shrink:0}
+/* Reminder toast stays visible above any Buddy page, including sleep. */
+.reminder-banner{position:absolute;top:7px;left:12px;right:12px;z-index:30;
+ box-sizing:border-box;padding:9px 14px;border:1px solid #8ee8ff;border-radius:11px;
+ background:#173d55;color:#f1fcff;box-shadow:0 4px 16px #0009;
+ text-align:center;font-size:15px;font-weight:700;line-height:1.3;
+ overflow-wrap:anywhere;pointer-events:none;animation:reminderFlash .65s ease-in-out infinite alternate}
+.reminder-banner[hidden]{display:none}
+.reminder-banner .reminder-caption{display:block;font-size:10px;letter-spacing:1.5px;
+ text-transform:uppercase;color:#9ae7ff;margin-bottom:2px}
+@keyframes reminderFlash{from{background:#173d55;border-color:#69d6f4}
+ to{background:#32627c;border-color:#dcfaff}}
+
+.calendar-page-dots{position:absolute;z-index:5;left:0;right:0;bottom:0;height:29px;background:#090e18;display:flex;align-items:center;justify-content:center;gap:10px;box-sizing:border-box;cursor:default}
+.calendar-page-dots[hidden]{display:none}
+.calendar-page-dot{padding:0!important;margin:0!important;width:7px;height:7px;border:0;border-radius:50%;background:#4a5c70;flex:0 0 auto}
+.calendar-page-dot.active{width:9px;height:9px;background:#d8efff}
+.calendar-page-count{position:absolute;right:8px;bottom:1px;font-size:9px;color:#a9bdd1}
+.screen-app-panel:has(.calendar-grid){padding-bottom:33px;overflow-y:auto}
+.screen-app-panel:has(.calendar-grid) .calendar-day{height:34px}
+.calendar-toolbar{display:flex;justify-content:space-between;align-items:center;gap:5px;margin:5px 0 10px}
+.calendar-toolbar button{padding:5px 11px}
+.calendar-weekdays,.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.calendar-weekdays span{text-align:center;color:#a7b9cc;font-size:11px}
+.calendar-day{min-width:0;min-height:38px;border:1px solid #3b5268;background:#1b3046;color:#eaf8ff;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px;font-size:13px;cursor:pointer}
+.calendar-day.has-event{border-color:#69dfff;background:#23485c}
+.calendar-day.today{box-shadow:inset 0 0 0 1px #f6da83}
+.calendar-day .event-dots{font-size:9px;color:#86e5ff;white-space:nowrap}
+.calendar-empty{min-height:38px}
+.calendar-editor{margin-top:10px;border:1px solid #4e7088;border-radius:9px;padding:10px;background:#152a3c}
+.calendar-editor input{box-sizing:border-box;width:100%;margin:5px 0 8px;padding:9px;border-radius:7px;border:1px solid #54738b;background:#0e1d2e;color:white}
+.calendar-editor button{margin-right:5px}
+.screen-app-panel:has(.calendar-grid),.screen-app-panel:has(.calendar-editor){padding:7px 9px 8px}
+.calendar-toolbar{margin:0 0 5px;gap:3px}.calendar-toolbar button{margin:0;padding:4px 7px;font-size:11px}.calendar-toolbar strong{font-size:14px;flex:1;text-align:center;white-space:nowrap}
+.calendar-weekdays,.calendar-grid{gap:2px}.calendar-day{height:38px;min-height:0;justify-content:flex-start;align-items:stretch;text-align:left;padding:2px 3px;font-size:10px;margin:0;overflow:hidden;gap:1px}
+.calendar-day-number{font-size:11px;font-weight:700}.calendar-event-name{display:block;font-size:8px;line-height:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#39647d;border-radius:2px;padding:0 2px}
+.calendar-event-more{font-size:8px;color:#a6d8ec}.calendar-empty{min-height:38px}.calendar-editor{margin-top:1px;padding:8px}.calendar-editor h3{margin:4px 0}.calendar-selected-date{padding:7px;background:#213c51;border-radius:6px}.calendar-existing{margin-top:6px;max-height:62px;overflow:auto}.calendar-existing>div{padding:2px;border-top:1px solid #405368}
+
+
+/* Touch-friendly scrolling controls for app pages. */
+.scroll-arrows{position:absolute;right:4px;top:50%;transform:translateY(-50%);z-index:8;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.scroll-arrows[hidden]{display:none}
+.scroll-arrows button{pointer-events:auto;width:35px;height:39px;padding:0;margin:0;border-radius:10px;background:#234b68eF;border:1px solid #8ddfff;color:#fff;font-size:23px;line-height:1;touch-action:none;user-select:none;-webkit-user-select:none}
+.scroll-arrows button:disabled{opacity:.25}
+.screen-app-panel,.reminder-create{scrollbar-width:none}
+.screen-app-panel::-webkit-scrollbar,.reminder-create::-webkit-scrollbar{display:none}
+</style></head><body><main><h1>Buddy OS <span class="muted">v8.1</span></h1><div class="muted">Interactive 480 × 320 touchscreen simulator • Runs offline in your browser</div><div class="layout"><div class="screen-wrap"><div id="screen" class="screen"><canvas id="face" width="480" height="320" aria-label="Buddy touchscreen simulator"></canvas><div id="featurePanel" class="screen-app-panel" hidden></div><div id="scrollArrows" class="scroll-arrows" hidden><button id="scrollUp" type="button" aria-label="Scroll up">▲</button><button id="scrollDown" type="button" aria-label="Scroll down">▼</button></div><div id="calendarPageDots" class="calendar-page-dots" hidden></div><div id="reminderBanner" class="reminder-banner" role="alert" aria-live="assertive" hidden><span class="reminder-caption">Reminder!</span><span id="reminderBannerText"></span></div><div id="reminderCreate" class="reminder-create" hidden><div class="create-header"><button id="reminderCancel" type="button">‹ Back</button><strong>Create Reminder</strong><span></span></div><form id="reminderForm" novalidate><label for="reminderTitle">Reminder</label><input id="reminderTitle" type="text" placeholder="What should Buddy remind you?" maxlength="90" required><label for="reminderDate" id="reminderDateLabel">Date and time</label><div class="date-picker-target" id="reminderDateTarget" aria-label="Choose reminder date and time"><input id="reminderDate" type="hidden"><button id="reminderDateDisplay" type="button" style="width:100%;margin:0;text-align:left;background:#101825;border:1px solid #506078;padding:9px;color:#fff;font-size:13px">Choose date and time ▾</button></div><button id="saveReminderButton" class="reminder-save" type="button">Save reminder</button><div id="reminderFeedback" role="status" aria-live="polite" style="font-size:12px;color:#ffcf86;margin-top:6px;min-height:16px"></div></form></div><div id="touchKeyboard" class="touch-overlay" hidden><div class="touch-top"><strong id="keyboardLabel">Type</strong><button id="keyboardDone" type="button">Done ✓</button></div><div id="keyboardPreview" class="touch-preview"></div><div id="keyboardKeys" class="touch-keys"></div></div><div id="touchDatePicker" class="touch-overlay" hidden><div class="picker-header"><button id="pickerPrev" type="button">‹</button><strong id="pickerMonth"></strong><button id="pickerNext" type="button">›</button><button id="pickerCancel" type="button">✕</button></div><div id="pickerDays" class="picker-grid"></div><div class="picker-time"><button id="hourDown" type="button">−</button><strong id="pickerHour"></strong><button id="hourUp" type="button">+</button><span>:</span><button id="minuteDown" type="button">−</button><strong id="pickerMinute"></strong><button id="minuteUp" type="button">+</button><button id="pickerAmPm" type="button">AM</button></div><button id="pickerConfirm" class="picker-confirm" type="button">Use this date and time</button></div></div><div class="hint">All Buddy apps are operated inside the 480 × 320 screen • Tap Manage for app controls • Swipe or tap page dots to navigate</div><div id="simNav"><button id="back">Face</button><button id="menu">Menu</button><button id="random">Random reaction</button><button id="clockBtn">Clock</button><button id="pomoBtn">Pomodoro</button><button id="sleepBtn">Sleep</button><button id="featuresBtn">Apps</button></div><span class="chip" id="status">Ready</span><div id="pomoControls" style="display:none;margin-top:10px"><button id="pomoToggle">Start</button><button id="pomoReset">Reset</button><button id="pomoSkip">Skip phase</button><span class="chip" id="pomoInfo">Focus • 25 min</span></div></div><section class="panel"><h2 style="margin-top:0">Customize Buddy</h2><label for="name">Name</label><input id="name" type="text" maxlength="18"><label for="color">Eye color</label><input id="color" type="color"><label for="shape">Eye shape</label><select id="shape"><option value="rounded">Rounded</option><option value="circle">Circular</option><option value="square">Square</option></select><label for="mood">Default expression</label><select id="mood"><option value="happy">Happy</option><option value="neutral">Neutral</option><option value="sleepy">Sleepy</option><option value="sad">Sad</option><option value="surprised">Surprised</option><option value="angry">Angry</option></select><label class="switch"><input id="idle" type="checkbox">Random idle animations</label><label class="switch"><input id="sound" type="checkbox">Sound effects</label><label class="switch"><input id="sleep" type="checkbox">Automatic sleep</label><label for="sleepDelay">Sleep after</label><select id="sleepDelay"><option value="30">30 seconds</option><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select><label class="switch"><input id="clock24" type="checkbox">24-hour clock</label><label class="switch"><input id="showName" type="checkbox">Show Buddy name on face</label><button id="reset">Reset defaults</button><p class="muted small">Settings save in this browser and sync with Buddy Connect when it is running on this PC. The physical ESP32 is not yet supported.</p></section></div></main><script>
+const DEFAULT={name:'Buddy',color:'#62d9ff',shape:'rounded',mood:'happy',idle:true,sound:true,sleep:true,sleepDelay:'60',clock24:false,showName:true,showPageDots:true,blink:true,showClockDate:true};let settings;try{settings={...DEFAULT,...JSON.parse(localStorage.getItem('buddy-settings')||'{}')}}catch{settings={...DEFAULT}};
+const ids=['name','color','shape','mood','idle','sound','sleep','sleepDelay','clock24','showName'];const $=id=>document.getElementById(id);let mode='face',expression=settings.mood,temporaryUntil=0,lastAction=performance.now(),blink=0,blinkStart=0,nextBlink=performance.now()+2000,lookX=0,lookY=0,targetX=0,targetY=0,nextLook=0,menuIndex=0,menuItems=['Face','Clock','Pomodoro','Reminders','Calendar','Alarms','Timers','Notes','Games','PC'],timerStart=0,timerSeconds=25*60,audioCtx,reactionKind='',reactionStart=0,lastReaction='',tapTime=0,clickCount=0,pomoPhase='focus',pomoRunning=false,pomoRemaining=25*60,pomoEnd=0,pomoCycles=0,sleepStarted=0;
+const BUDDY_CONNECT_URL='http://127.0.0.1:8765', BUDDY_SYNC_FIELDS=Object.keys(DEFAULT);
+let buddyRevision=-1, buddySending=false, buddyDirty=false;
+function apply(){ids.forEach(id=>$(id)[$(id).type==='checkbox'?'checked':'value']=settings[id]);try{localStorage.setItem('buddy-settings',JSON.stringify(settings))}catch(err){console.warn('Settings storage unavailable',err)}}
+async function pushBuddySettings(){
+ buddyDirty=true;
+ if(buddySending)return;
+ buddySending=true;
+ try{
+  while(buddyDirty){
+   buddyDirty=false;
+   const snapshot=Object.fromEntries(BUDDY_SYNC_FIELDS.map(k=>[k,settings[k]]));
+   const r=await fetch(BUDDY_CONNECT_URL+'/settings',{method:'POST',headers:{'Content-Type':'application/json','X-Buddy-Client':'simulator'},body:JSON.stringify({settings:snapshot})});
+   if(!r.ok)break;
+   const d=await r.json();buddyRevision=d.revision;
+  }
+ }catch{}finally{buddySending=false;buddyDirty=false}
+}
+async function pullBuddySettings(){if(buddySending||buddyDirty)return;try{const r=await fetch(BUDDY_CONNECT_URL+'/settings',{cache:'no-store'});if(!r.ok)return;const d=await r.json();if(d.revision!==buddyRevision){buddyRevision=d.revision;settings={...DEFAULT,...d.settings};expression=settings.mood;apply()}}catch{}}
+apply();ids.forEach(id=>$(id).addEventListener('input',()=>{settings[id]=$(id).type==='checkbox'?$(id).checked:$(id).value;expression=settings.mood;lastAction=performance.now();apply();pushBuddySettings()}));$('reset').onclick=()=>{settings={...DEFAULT};expression=settings.mood;apply();pushBuddySettings()};
+setInterval(pullBuddySettings,2000);pullBuddySettings();
+function chirp(){if(!settings.sound)return;try{audioCtx??=new (window.AudioContext||window.webkitAudioContext)();const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.type='sine';osc.frequency.setValueAtTime(620,audioCtx.currentTime);osc.frequency.exponentialRampToValueAtTime(850,audioCtx.currentTime+.09);gain.gain.setValueAtTime(.025,audioCtx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.13);osc.connect(gain).connect(audioCtx.destination);osc.start();osc.stop(audioCtx.currentTime+.14)}catch{}}
+const REACTIONS=['excited','wink','love','confused','dizzy','laugh','shy','angry','surprised','sad','sleepy','bounce','squint','sideeye','happyDance','dazzled'];
+function chooseReaction(special=false){const pool=special?['love','dizzy','happyDance','excited','laugh','dazzled']:REACTIONS;const available=pool.filter(x=>x!==lastReaction);return available[Math.floor(Math.random()*available.length)]}
+function react(kind){reactionKind=kind;lastReaction=kind;reactionStart=performance.now();temporaryUntil=reactionStart+(kind==='love'?3800:kind==='dazzled'?4200:2400);lastAction=reactionStart;mode='face';expression=kind==='sleepy'?'sleepy':kind==='angry'?'angry':kind==='sad'?'sad':kind==='surprised'?'surprised':'happy';chirp();$('status').textContent='Reaction: '+kind.replace(/([A-Z])/g,' $1')}
+function setMode(m){if(typeof closeAppPanel==='function')closeAppPanel();if(typeof closeReminderCreate==='function')closeReminderCreate();mode=m;lastAction=performance.now();if(m==='calendar'){appPanelOpen=true;calendarSelectedDate=null;}if(typeof showFeaturePanel==='function')showFeaturePanel();if(typeof updateCalendarPageDots==='function')updateCalendarPageDots();if(m==='sleep'){sleepStarted=performance.now();reactionKind='';temporaryUntil=0} $('pomoControls').style.display=m==='pomodoro'?'block':'none';$('simNav').style.display=m==='sleep'?'none':'';$('status').textContent=m==='face'?'Face mode':m==='sleep'?'Sleeping — tap to wake':m+' screen'}
+function pomoLength(){return pomoPhase==='focus'?25*60:5*60}
+function pomoUpdate(){if(pomoRunning){pomoRemaining=Math.max(0,Math.ceil((pomoEnd-Date.now())/1000));if(pomoRemaining===0){pomoRunning=false;if(pomoPhase==='focus')pomoCycles++;pomoPhase=pomoPhase==='focus'?'break':'focus';pomoRemaining=pomoLength();$('status').textContent=pomoPhase==='break'?'Focus complete! Take a break.':'Break complete! Ready to focus.';chirp();chirp()}}$('pomoToggle').textContent=pomoRunning?'Pause':'Start';$('pomoInfo').textContent=(pomoPhase==='focus'?'Focus':'Break')+' • '+(pomoPhase==='focus'?'25':'5')+' min'}
+function pomoToggle(){pomoUpdate();if(pomoRunning){pomoRunning=false}else{pomoEnd=Date.now()+pomoRemaining*1000;pomoRunning=true}pomoUpdate()}
+function pomoReset(){pomoRunning=false;pomoRemaining=pomoLength();pomoUpdate()}
+function pomoSkip(){pomoRunning=false;if(pomoPhase==='focus')pomoCycles++;pomoPhase=pomoPhase==='focus'?'break':'focus';pomoRemaining=pomoLength();pomoUpdate()}
+$('pomoToggle').onclick=pomoToggle;$('pomoReset').onclick=pomoReset;$('pomoSkip').onclick=pomoSkip;
+$('clockBtn').onclick=()=>setMode('clock');$('pomoBtn').onclick=()=>setMode('pomodoro');$('sleepBtn').onclick=()=>setMode('sleep');
+$('back').onclick=()=>setMode('face');$('menu').onclick=()=>setMode('menu');$('random').onclick=()=>react(chooseReaction());
+const canvas=$('face'),ctx=canvas.getContext('2d');function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()};function txt(t,x,y,size=23,color='#e6f4ff'){ctx.fillStyle=color;ctx.font=`600 ${size}px system-ui`;ctx.textAlign='center';ctx.fillText(t,x,y)}function draw(t){ctx.clearRect(0,0,480,320);ctx.fillStyle='#090e18';ctx.fillRect(0,0,480,320);if(mode==='face'){
+if(temporaryUntil&&t>temporaryUntil){expression=settings.mood;temporaryUntil=0;reactionKind=''}
+const active=!!reactionKind&&t<temporaryUntil,elapsed=(t-reactionStart)/1000,phase=elapsed*9;
+// Ease each feature back into its default position and dimensions over 850 ms.
+const fadeDuration=850,fadeProgress=active?Math.max(0,Math.min(1,(t-(temporaryUntil-fadeDuration))/fadeDuration)):0;
+const returnBlend=fadeProgress*fadeProgress*(3-2*fadeProgress);
+// Enter with the same smooth shape/position interpolation as the exit, in 300 ms.
+const enterProgress=active?Math.max(0,Math.min(1,(t-reactionStart)/300)):0;
+const enterBlend=enterProgress*enterProgress*(3-2*enterProgress);
+const morph=active?enterBlend*(1-returnBlend):0;
+const shapeBlend=1-morph;
+const mix=(a,b,f)=>a+(b-a)*f;
+if(settings.sleep&&mode!=='sleep'&&!reminderCreating&&!appPanelOpen&&!(mode==='games'&&(gameState.running||gameState.waiting))&&t-lastAction>Number(settings.sleepDelay||60)*1000){setMode('sleep');requestAnimationFrame(draw);return}
+if(settings.idle&&t>nextLook){targetX=(Math.random()-.5)*32;targetY=(Math.random()-.5)*18;nextLook=t+1500+Math.random()*3200}
+lookX+=(targetX-lookX)*.045;lookY+=(targetY-lookY)*.045;
+if(settings.blink&&t>nextBlink){blinkStart=t;nextBlink=t+2300+Math.random()*3300}
+blink=(!settings.blink)?1:(t-blinkStart<210)?Math.max(.05,Math.abs(t-blinkStart-105)/105):1;
+let bounce=0,tilt=0,scale=1,shift=0;
+if(active){
+if(['excited','bounce','happyDance','laugh'].includes(reactionKind))bounce=Math.sin(phase*2)*12;
+if(['dizzy','confused','happyDance'].includes(reactionKind))tilt=Math.sin(phase)*.12;
+if(reactionKind==='shy')scale=.82;
+if(reactionKind==='sideeye')shift=25;
+if(reactionKind==='dazzled'){const starX=240+Math.cos(elapsed*2.7)*105,starY=60+Math.sin(elapsed*2.7)*28;targetX=Math.max(-24,Math.min(24,(starX-240)*.24));targetY=-22+Math.max(-7,Math.min(7,(starY-60)*.24));lookX+=(targetX-lookX)*.16;lookY+=(targetY-lookY)*.16;}
+}
+ctx.save();ctx.translate(240,155+bounce*morph);ctx.rotate(tilt*morph);ctx.scale(1+(scale-1)*morph,1+(scale-1)*morph);ctx.translate(-240,-155);
+const sleepy=expression==='sleepy',eyeH=(sleepy?12:78)*blink;
+ctx.fillStyle=settings.color;
+for(let i=0;i<2;i++){
+let x=(i===0?126:296)+lookX+shift*morph,y=96+lookY+(78-eyeH)/2;
+let h=eyeH;
+if(active&&reactionKind==='dazzled'){y-=12*morph;h=mix(eyeH*.55,eyeH,shapeBlend);x+=13*morph;}
+if(active&&reactionKind==='wink'&&i===0)h=mix(6,eyeH,shapeBlend);
+if(active&&reactionKind==='squint')h=mix(Math.min(h,16),eyeH,shapeBlend);
+if(active&&reactionKind==='shy')h=mix(Math.min(h,36),eyeH,shapeBlend);
+if(active&&reactionKind==='confused'&&i===1)h=mix(Math.min(h,30),eyeH,shapeBlend);
+if(active&&reactionKind==='love'&&morph>.98){
+ctx.font='bold 94px system-ui';ctx.textAlign='center';ctx.fillText('♥',x+29,176);continue;
+}
+if(active&&reactionKind==='dizzy'&&morph>.98){
+ctx.strokeStyle=settings.color;ctx.lineWidth=11;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.arc(x+29,132,20,phase+i,phase+i+Math.PI*1.6);ctx.stroke();continue;
+}
+const baseY=96+lookY+(78-eyeH)/2; y=mix(y,baseY,shapeBlend);
+if(settings.shape==='circle'){ctx.beginPath();ctx.ellipse(x+29,y+h/2,30,Math.max(2,h/2),0,0,Math.PI*2);ctx.fill()}
+else rr(x,y,58,Math.max(3,h),settings.shape==='square'?3:23)
+}
+ctx.strokeStyle=settings.color;ctx.lineWidth=6;ctx.lineCap='round';ctx.beginPath();
+if(active&&['excited','laugh','happyDance','love'].includes(reactionKind)){ctx.arc(240,199,25,0,Math.PI);}
+else if(active&&reactionKind==='confused'){ctx.moveTo(224,205);ctx.quadraticCurveTo(235,190,244,207);ctx.lineTo(257,201)}
+else if(active&&reactionKind==='dazzled'){/* Slowly pulsing circular mouth; no squash or sideways stretch. */const mouthRadius=14*(1+0.18*Math.sin(elapsed*2.2));ctx.beginPath();ctx.arc(240,207,mouthRadius,0,Math.PI*2);ctx.fillStyle=settings.color;ctx.fill()}
+else if(expression==='happy')ctx.arc(240,195,19,.15,Math.PI-.15);
+else if(expression==='sad')ctx.arc(240,217,19,Math.PI+.15,Math.PI*2-.15);
+else if(expression==='surprised'){ctx.ellipse(240,207,7,13,0,0,Math.PI*2);ctx.fillStyle=settings.color;ctx.fill()}
+else{ctx.moveTo(224,206);ctx.lineTo(256,206)}ctx.stroke();
+if(active&&reactionKind==='dazzled'){
+// One golden-yellow star matching the user's reference: long pointed tips,
+// deeply curved sides, and a smooth solid silhouette. Buddy tracks its orbit.
+const orbitX=240+Math.cos(elapsed*2.7)*105,orbitY=60+Math.sin(elapsed*2.7)*28;
+// Smooth breathing pulse: the star grows and shrinks as it orbits.
+// Keep the size positive and gently vary between 78% and 122%.
+const starScale=1+0.22*Math.sin(elapsed*4.5);
+ctx.save();ctx.translate(orbitX,orbitY);ctx.scale(starScale*morph,starScale*morph);
+ctx.fillStyle='#FFD33D';
+ctx.beginPath();
+ctx.moveTo(0,-29);
+ctx.bezierCurveTo(3,-8,8,-3,29,0);
+ctx.bezierCurveTo(8,3,3,8,0,29);
+ctx.bezierCurveTo(-3,8,-8,3,-29,0);
+ctx.bezierCurveTo(-8,-3,-3,-8,0,-29);
+ctx.closePath();ctx.fill();
+ctx.restore();
+}
+if(active&&reactionKind==='excited'&&morph>.98){for(let i=0;i<5;i++){const a=i*1.26+phase*.2;ctx.beginPath();ctx.arc(240+Math.cos(a)*125,143+Math.sin(a)*100,4,0,Math.PI*2);ctx.fill()}}
+if(active&&reactionKind==='shy'){ctx.globalAlpha=.65*morph;ctx.fillStyle='#ff7fa5';ctx.beginPath();ctx.roundRect(148,184,24,28,11);ctx.roundRect(308,184,24,28,11);ctx.fill();ctx.globalAlpha=1}
+ctx.restore();
+if(settings.showName)txt(settings.name,240,273,16,'#8091a9')
+}else if(mode==='sleep'){
+const sleepyProgress=Math.min(1,(t-sleepStarted)/1100),ease=sleepyProgress*sleepyProgress*(3-2*sleepyProgress);
+ctx.fillStyle=settings.color;ctx.globalAlpha=0.65-0.38*ease;
+for(const x of [126,296]){const h=78-(75*ease);rr(x,96+(78-h)/2,58,h,Math.min(23,h/2))}
+ctx.globalAlpha=0.65-0.38*ease;ctx.lineWidth=5;ctx.strokeStyle=settings.color;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(224,206);ctx.lineTo(256,206);ctx.stroke();ctx.globalAlpha=1;
+txt('z',332,96-8*Math.sin(t/750),20,'#526c82');txt('z',359,67-6*Math.sin(t/850),15,'#40586c');
+// Sleep display has no buttons, page indicators, or page counter.
+}else if(mode==='menu'){txt('Buddy Menu',240,38,26);const page=Math.floor(menuIndex/6),start=page*6;menuItems.slice(start,start+6).forEach((item,i)=>{ctx.fillStyle=start+i===menuIndex?'#315b75':'#1c2c3c';rr(85,48+i*38,310,33,9);txt(item,240,71+i*38,18)});txt('Swipe left/right for more',240,281,12,'#8ca9c7')}else if(mode==='clock'){
+const now=new Date();txt('CLOCK',240,61,19,'#8ca9c7');txt(now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:!settings.clock24}).replace(/\./g,''),240,178,69);if(settings.showClockDate)txt(now.toLocaleDateString([],{weekday:'long',month:'long',day:'numeric'}),240,220,20,'#b4c6d9');txt('Tap to return',240,276,15,'#8ca9c7');
+}else if(mode==='pomodoro'){
+pomoUpdate();txt(pomoPhase==='focus'?'FOCUS TIME':'BREAK TIME',240,62,24);txt(`${Math.floor(pomoRemaining/60).toString().padStart(2,'0')}:${(pomoRemaining%60).toString().padStart(2,'0')}`,240,178,70);txt(pomoRunning?'Tap to pause':'Tap to start',240,226,19,'#a4d8f0');txt('Sessions finished: '+pomoCycles+'   •   25 / 5 min',240,276,15,'#8ca9c7');
+}else if(['reminders','calendar','alarms','timers','notes','games','pc'].includes(mode)){drawFeatureScreen(t)}else{txt('Change settings on the right',240,155,22);txt('Tap to return',240,205,16,'#8ca9c7')}if(mode!=='sleep'&&settings.showPageDots)drawPageIndicator();requestAnimationFrame(draw)}requestAnimationFrame(draw);
+// Persistent page indicator across Buddy's touchscreen screens.
+const buddyPages=['face','clock','pomodoro','reminders','calendar','alarms','timers','notes','games','pc'];
+function updateCalendarPageDots(){
+ const bar=$('calendarPageDots');if(!bar)return;
+ // Keep the page dots present in the month view; editing screens can cover them.
+ bar.hidden=!(mode==='calendar' && !calendarSelectedDate);
+ if(bar.hidden)return;
+ bar.innerHTML=buddyPages.map((page,i)=>`<button type="button" class="calendar-page-dot ${page==='calendar'?'active':''}" data-page="${page}" aria-label="Go to ${page}" title="${page}"></button>`).join('')+'<span class="calendar-page-count">5 / '+buddyPages.length+'</span>';
+ bar.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>setMode(b.dataset.page));
+}
+function drawPageIndicator(){
+ const current=buddyPages.indexOf(mode);
+ const active=current<0?0:current;
+ const count=buddyPages.length,step=17,start=240-(count-1)*step/2;
+ ctx.save();
+ for(let i=0;i<count;i++){
+  ctx.beginPath();ctx.arc(start+i*step,296,i===active?4.3:3.1,0,Math.PI*2);
+  ctx.fillStyle=i===active?'#d8efff':'#4a5c70';ctx.fill();
+ }
+ txt(`${active+1} / ${count}`,240,315,11,'#a9bdd1');
+ ctx.restore();
+}
+function pageFromTap(x,y){
+ if(y<286)return false;
+ const count=buddyPages.length,step=17,start=240-(count-1)*step/2;
+ if(y<=307){const index=Math.round((x-start)/step);if(index>=0&&index<count&&Math.abs(x-(start+index*step))<=8){setMode(buddyPages[index]);return true}}
+ return false;
+}
+// Swipe left advances to the next page; swipe right returns to the previous page.
+function navigateSwipe(dx){
+ if(mode==='games'&&gameState.type)return; // Never navigate away during a game or game-over screen.
+ if(mode==='sleep'){setMode('face');return}
+ const current=buddyPages.indexOf(mode);
+ if(current<0){setMode('face');return}
+ const next=current+(dx<0?1:-1);
+ if(next>=0&&next<buddyPages.length)setMode(buddyPages[next]);
+}
+// The calendar and other HTML app panels cover the canvas, so recognize swipes there too.
+let overlaySwipe=null;
+$('screen').addEventListener('pointerdown',e=>{
+ if(e.target===canvas)return;
+ if(e.target.closest('button,input,textarea,select,.touch-overlay,.scroll-arrows,.reminder-create,.calendar-editor,.calendar-day'))return;
+ overlaySwipe={x:e.clientX,y:e.clientY,time:performance.now()};
+});
+$('screen').addEventListener('pointerup',e=>{
+ if(!overlaySwipe)return;
+ const dx=e.clientX-overlaySwipe.x,dy=e.clientY-overlaySwipe.y;
+ overlaySwipe=null;
+ if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.3)navigateSwipe(dx);
+});
+$('screen').addEventListener('pointercancel',()=>overlaySwipe=null);
+let down=null;function action(x,y,long=false){if(reminderCreating)return;if(mode==='sleep'){setMode('face');expression=settings.mood;return}if(mode==='games'&&gameState.type){lastAction=performance.now();featureTap(x,y);return}if(!long&&pageFromTap(x,y))return;lastAction=performance.now();if(long){setMode('menu');return}if(mode==='face'){
+const now=performance.now();tapHistory=tapHistory.filter(v=>now-v<850);tapHistory.push(now);if(tapHistory.length>=4){tapHistory=[];react('dizzy')}else{const double=now-tapTime<340;react(chooseReaction(double))}tapTime=now;
+}else if(mode==='menu'){let i=Math.floor((y-48)/38),index=Math.floor(menuIndex/6)*6+i;if(i>=0&&i<6&&index<menuItems.length){menuIndex=index;setMode(menuItems[index].toLowerCase())}}else if(mode==='pomodoro'){pomoToggle()}else if(['reminders','calendar','alarms','timers','notes','games','pc'].includes(mode)){featureTap(x,y)}else setMode('face')}
+canvas.addEventListener('pointermove',e=>{if(mode==='games'&&gameState.running&&e.buttons)arcadeInput(e.offsetX/canvas.clientWidth*480,e.offsetY/canvas.clientHeight*320,false)});canvas.addEventListener('pointerdown',e=>{if(mode==='games'&&(gameState.running||gameState.waiting))arcadeInput(e.offsetX/canvas.clientWidth*480,e.offsetY/canvas.clientHeight*320);down={x:e.offsetX/canvas.clientWidth*480,y:e.offsetY/canvas.clientHeight*320,time:performance.now()}});canvas.addEventListener('pointerup',e=>{if(!down)return;let x=e.offsetX/canvas.clientWidth*480,dx=x-down.x,dt=performance.now()-down.time;if(reminderCreating){down=null;return}if(mode==='games'&&(gameState.running||gameState.waiting)){if(gameState.type==='snake')arcadeInput(x,e.offsetY/canvas.clientHeight*320);gameState.held=0;down=null;return}if(mode==='games'&&gameState.type){action(down.x,down.y,false)}else if(Math.abs(dx)>65){navigateSwipe(dx)}else action(down.x,down.y,dt>650);down=null});window.addEventListener('keydown',e=>{if(e.key==='Escape'){if(reminderCreating)closeReminderCreate();else if(appPanelOpen)closeAppPanel();else setMode('face')}});setInterval(pomoUpdate,250);
+
+// Buddy OS v3.0 browser apps. Local data stays in this browser.
+let tapHistory=[],gameState={type:null,running:false,score:0,over:false,last:0,acc:0,dir:'right',snake:[],food:null,player:240,balls:[],ball:null,paddle:240},pcStats=null,pcDemo=false,pcPollUrl='http://127.0.0.1:8765/stats',lastPCPoll=0;
+const storeKey='buddy-apps-v3';let appData={reminders:[],events:[],alarms:[],notes:[],timerEnd:0,timerLeft:300,timerRunning:false};try{appData={...appData,...JSON.parse(localStorage.getItem(storeKey)||'{}')}}catch{}
+const saveApps=()=>{scheduleBuddyAppsPush();try{localStorage.setItem(storeKey,JSON.stringify(appData));return true}catch(err){console.warn('Buddy storage unavailable:',err);return false}};
+let buddyAppsRevision=-1,buddyAppsDirty=false,buddyAppsSending=false,buddyAppsTimer=null;
+function scheduleBuddyAppsPush(){buddyAppsDirty=true;clearTimeout(buddyAppsTimer);buddyAppsTimer=setTimeout(pushBuddyApps,350)}
+async function pushBuddyApps(){if(buddyAppsSending)return;buddyAppsSending=true;try{while(buddyAppsDirty){buddyAppsDirty=false;const r=await fetch(BUDDY_CONNECT_URL+'/apps',{method:'POST',headers:{'Content-Type':'application/json','X-Buddy-Client':'simulator'},body:JSON.stringify({data:appData})});if(!r.ok)throw Error('Sync failed');const d=await r.json();buddyAppsRevision=d.revision}}catch{buddyAppsDirty=true}finally{buddyAppsSending=false}}
+async function pullBuddyApps(){if(buddyAppsSending||buddyAppsDirty)return;try{const r=await fetch(BUDDY_CONNECT_URL+'/apps',{cache:'no-store'});if(!r.ok)return;const d=await r.json();if(d.revision!==buddyAppsRevision){if(buddyAppsRevision===-1){const hasLocal=['reminders','events','alarms','notes'].some(k=>appData[k].length);const hasRemote=['reminders','events','alarms','notes'].some(k=>(d.data[k]||[]).length);if(hasLocal&&!hasRemote){buddyAppsRevision=d.revision;scheduleBuddyAppsPush();return}}
+ buddyAppsRevision=d.revision;appData={...appData,...d.data};try{localStorage.setItem(storeKey,JSON.stringify(appData))}catch{}if(appPanelOpen)showFeaturePanel()}}catch{}}
+setInterval(pullBuddyApps,2000);setTimeout(pullBuddyApps,500);
+const escapeHtml=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shortTime=ms=>new Date(ms).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+const appNames=['reminders','calendar','alarms','timers','notes','games','pc'];
+$('featuresBtn').onclick=()=>setMode('menu');
+const panel=$('featurePanel');let appPanelOpen=false;function closeAppPanel(){appPanelOpen=false;panel.hidden=mode!=='calendar';updateCalendarPageDots()}function openAppPanel(){if(!appNames.includes(mode))return;appPanelOpen=true;showFeaturePanel()}
+let reminderCreating=false;
+function openReminderCreate(){closeTouchKeyboard();picker.hidden=true;reminderCreating=true;$('reminderCreate').hidden=false;$('reminderTitle').value='';$('reminderFeedback').textContent='';const d=new Date(Date.now()+3600000);d.setMinutes(0,0,0);const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);$('reminderDate').value=local;updateReminderDateDisplay();lastAction=performance.now();}
+function closeReminderCreate(){closeTouchKeyboard();picker.hidden=true;reminderCreating=false;$('reminderCreate').hidden=true;}
+$('reminderCancel').onclick=closeReminderCreate;
+// Always use Buddy's own touchscreen date/time picker, never an unreliable browser-native picker.
+function openReminderDatePicker(){openTouchDatePicker($('reminderDate'))}
+$('reminderDateDisplay').addEventListener('click',openReminderDatePicker);
+$('reminderDateTarget').addEventListener('click',e=>{if(e.target!==$('reminderDateDisplay'))openReminderDatePicker()});
+$('reminderDateLabel').addEventListener('click',e=>{e.preventDefault();openReminderDatePicker()});
+
+// One save path for the touchscreen button, keyboard shortcut and form submission.
+function saveReminder(){
+ const titleInput=$('reminderTitle'),dateInput=$('reminderDate'),feedback=$('reminderFeedback');
+ const text=titleInput.value.trim();
+ const dateValue=dateInput.value;
+ const when=new Date(dateValue).getTime();
+ closeTouchKeyboard();
+ picker.hidden=true;
+ if(!text){feedback.textContent='Enter a reminder name first.';return false;}
+ if(!dateValue||!Number.isFinite(when)){feedback.textContent='Choose a date and time first.';return false;}
+ if(when<=Date.now()){feedback.textContent='Choose a future date and time.';return false;}
+ if(!Array.isArray(appData.reminders))appData.reminders=[];
+ const reminder={id:Date.now()+Math.random(),text,when,done:false};
+ appData.reminders.push(reminder);
+ const persisted=saveApps();
+ closeReminderCreate();
+ closeAppPanel();
+ setMode('reminders');
+ $('status').textContent=persisted?'Reminder saved: '+text:'Reminder added (storage unavailable)';
+ return true;
+}
+$('saveReminderButton').addEventListener('click',saveReminder);
+$('reminderForm').addEventListener('submit',e=>{e.preventDefault();saveReminder()});
+let calendarView=new Date();calendarView.setDate(1);
+let calendarSelectedDate=null;
+function calendarDateKey(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
+function calendarMonthHTML(){
+ const y=calendarView.getFullYear(),m=calendarView.getMonth(),offset=new Date(y,m,1).getDay(),count=new Date(y,m+1,0).getDate();
+ const events=Array.isArray(appData.events)?appData.events:[];
+ if(calendarSelectedDate){
+  const key=calendarSelectedDate,items=events.filter(e=>calendarDateKey(new Date(e.when))===key).sort((a,b)=>a.when-b.when);
+  const readable=new Date(key+'T12:00:00').toLocaleDateString([],{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  return `<div class="calendar-editor"><button type="button" id="calendarCancel">‹ Calendar</button><h3>Add an event</h3><label>Date</label><div class="calendar-selected-date">${readable}</div><label for="calendarEventName">What do you want to name it?</label><input type="text" id="calendarEventName" maxlength="90" placeholder="Event name"><label>Time</label><input id="calendarEventTime" type="text" readonly value="9:00 AM"><button type="button" id="calendarSave">Save event</button><p id="calendarError" class="muted small"></p>${items.length?`<div class="calendar-existing"><strong>Events on this day</strong>${items.map(e=>`<div>${escapeHtml(e.text)} <span class="muted small">${new Date(e.when).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span> <button data-remove="${e.id}" data-key="events">×</button></div>`).join('')}</div>`:''}</div>`;
+ }
+ let h=`<div class="calendar-toolbar"><button type="button" id="calPrev">‹</button><strong>${calendarView.toLocaleString([],{month:'long',year:'numeric'})}</strong><button type="button" id="calNext">›</button></div><div class="calendar-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<span>${x}</span>`).join('')}</div><div class="calendar-grid">`;
+ for(let i=0;i<offset;i++)h+='<span class="calendar-empty"></span>';
+ for(let day=1;day<=count;day++){
+  const key=calendarDateKey(new Date(y,m,day)),items=events.filter(e=>calendarDateKey(new Date(e.when))===key).sort((a,b)=>a.when-b.when);
+  h+=`<button type="button" class="calendar-day ${items.length?'has-event':''} ${key===calendarDateKey(new Date())?'today':''}" data-cal-date="${key}"><span class="calendar-day-number">${day}</span>${items.slice(0,2).map(e=>`<span class="calendar-event-name">${escapeHtml(e.text)}</span>`).join('')}${items.length>2?`<span class="calendar-event-more">+${items.length-2} more</span>`:''}</button>`;
+ }
+ return h+'</div>';
+}
+function attachCalendarHandlers(){updateCalendarPageDots();
+ if(!calendarSelectedDate){$('calPrev').onclick=()=>{calendarView.setMonth(calendarView.getMonth()-1);calendarSelectedDate=null;showFeaturePanel()};
+ $('calNext').onclick=()=>{calendarView.setMonth(calendarView.getMonth()+1);calendarSelectedDate=null;showFeaturePanel()};
+ panel.querySelectorAll('[data-cal-date]').forEach(b=>b.onclick=()=>{calendarSelectedDate=b.dataset.calDate;showFeaturePanel()});}
+ if(calendarSelectedDate){
+  let hour=9,minute=0;
+  const time=$('calendarEventTime');
+  time.onclick=()=>{const field=document.createElement('input');field.type='datetime-local';field.value=calendarSelectedDate+'T09:00';field.id='calendarTimeTemp';field.style.display='none';panel.append(field);openTouchDatePicker(field);
+   const observer=new MutationObserver(()=>{if(picker.hidden){const d=new Date(field.value);if(Number.isFinite(d.getTime())){hour=d.getHours();minute=d.getMinutes();time.value=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}observer.disconnect();field.remove();}});
+   observer.observe(picker,{attributes:true,attributeFilter:['hidden']});
+  };
+  $('calendarCancel').onclick=()=>{calendarSelectedDate=null;showFeaturePanel()};
+  $('calendarSave').onclick=()=>{
+   const title=$('calendarEventName').value.trim();if(!title){$('calendarError').textContent='Please name your event.';return;}
+   const [y,m,d]=calendarSelectedDate.split('-').map(Number);const when=new Date(y,m-1,d,hour,minute).getTime();
+   if(!Array.isArray(appData.events))appData.events=[];
+   appData.events.push({id:Date.now()+Math.random(),text:title,when,done:false});saveApps();calendarSelectedDate=null;closeTouchKeyboard();showFeaturePanel();
+  };
+ }
+}
+function showFeaturePanel(){if(!panel)return;const visible=appNames.includes(mode)&&(appPanelOpen||mode==='calendar');panel.hidden=!visible;updateCalendarPageDots();if(!visible)return;let h=mode==='calendar'?'':`<button class="app-close" id="appClose" type="button">✕ Back</button>`+`<h3 style="margin-top:0">${escapeHtml(mode==='pc'?'PC Companion':mode[0].toUpperCase()+mode.slice(1))}</h3>`;
+if(mode==='calendar'){h+=calendarMonthHTML();}
+else if(mode==='reminders'||mode==='alarms'){
+const key=mode==='reminders'?'reminders':mode==='calendar'?'events':'alarms';if(mode!=='reminders')h+=`<input id="entryText" type="text" placeholder="${mode==='calendar'?'Event title':mode==='alarms'?'Alarm label':'Reminder'}" maxlength="90"><input id="entryWhen" type="datetime-local" style="max-width:100%;margin:8px 0;padding:8px;background:#101825;color:white;border:1px solid #506078;border-radius:8px"><button id="entryAdd">Add</button>`;
+if(mode==='reminders')h+=`<button id="createReminderBelow">+ Create reminder</button>`;h+=`<div>${(Array.isArray(appData[key])?appData[key]:[]).slice().sort((a,b)=>a.when-b.when).map(o=>`<div style="padding:8px 0;border-bottom:1px solid #35465a">${escapeHtml(o.text)} <span class="muted small">${shortTime(o.when)}</span> <button data-remove="${o.id}" data-key="${key}">×</button></div>`).join('')||'<p class="muted small">Nothing scheduled yet.</p>'}</div>`;
+}else if(mode==='notes'){h+=`<textarea id="noteText" placeholder="Write a note..." rows="3" maxlength="1500" style="width:100%;box-sizing:border-box;background:#101825;color:white;border:1px solid #506078;border-radius:9px;padding:10px"></textarea><button id="noteAdd">Save note</button><div>${appData.notes.map(o=>`<div style="padding:8px 0;border-bottom:1px solid #35465a;white-space:pre-wrap">${escapeHtml(o.text)} <button data-remove="${o.id}" data-key="notes">×</button></div>`).join('')||'<p class="muted small">No notes yet.</p>'}</div>`}
+else if(mode==='timers'){h+=`<label>Timer duration (minutes:seconds)</label><input type="text" id="timerMinutes" inputmode="none" value="${Math.floor(appData.timerLeft/60)}:${String(appData.timerLeft%60).padStart(2,'0')}" style="width:90px;background:#101825;color:white;padding:8px"><button id="timerStart">${appData.timerRunning?'Pause':'Start'}</button><button id="timerReset">Reset</button><p class="muted small">Timer keeps counting while you use other Buddy screens.</p>`}
+else if(mode==='games'){h+='<p>Tap a game preview to play.</p>'}
+else if(mode==='pc'){h+=`<div style="text-align:left;line-height:1.5"><h4 style="color:#91dfff;margin:4px 0 8px">Buddy Connect</h4><p class="muted small">Install Buddy Connect on this Windows desktop or laptop, open it once and click <strong>Connect Buddy</strong>. You can then close the window. Buddy reconnects automatically whenever Windows is running.</p><p class="muted small">This browser demo connects to Buddy Connect on the <strong>same PC</strong>. Physical ESP32 support requires separate firmware.</p><p id="pcStatus" style="text-align:center;color:#91dfff">${pcDemo?'◉ Demonstration mode':pcStats?'● Connected':'○ Looking for Buddy Connect...'}</p><button id="pcRetry">Check connection</button><button id="pcDemoToggle" style="margin-left:8px;background:#225b77">${pcDemo?'Stop demonstration':'▶ Show demonstration'}</button><p class="muted small" style="text-align:center">Demonstration uses sample PC data. No connection required.</p></div>`}
+panel.innerHTML=h;if(mode==='calendar')updateCalendarPageDots();if(mode!=='calendar')$('appClose').onclick=closeAppPanel;
+if(mode==='calendar')attachCalendarHandlers();
+if(mode==='reminders')$('createReminderBelow').onclick=()=>{closeAppPanel();openReminderCreate()};
+if(mode==='alarms')$('entryAdd').onclick=()=>{const text=$('entryText').value.trim(),when=new Date($('entryWhen').value).getTime();if(!text||!Number.isFinite(when)){alert('Enter a title and valid date/time.');return}const key=mode==='reminders'?'reminders':mode==='calendar'?'events':'alarms';appData[key].push({id:Date.now()+Math.random(),text,when,done:false});saveApps();showFeaturePanel()};
+if(mode==='notes')$('noteAdd').onclick=()=>{const text=$('noteText').value.trim();if(!text)return;appData.notes.unshift({id:Date.now()+Math.random(),text});saveApps();showFeaturePanel()};
+if(mode==='timers'){$('timerStart').onclick=()=>{if(appData.timerRunning){appData.timerLeft=Math.max(0,Math.ceil((appData.timerEnd-Date.now())/1000));appData.timerRunning=false}else{if(appData.timerLeft<=0)appData.timerLeft=300;appData.timerEnd=Date.now()+appData.timerLeft*1000;appData.timerRunning=true}saveApps();showFeaturePanel()};$('timerReset').onclick=()=>{appData.timerRunning=false;appData.timerLeft=parseTimerDuration($('timerMinutes').value);saveApps();showFeaturePanel()}}
+if(mode==='games')panel.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>startGame(b.dataset.play));
+if(mode==='pc'){$('pcRetry').onclick=async()=>{pcDemo=false;await pollPC();closeAppPanel()};$('pcDemoToggle').onclick=()=>{pcDemo=!pcDemo;closeAppPanel()}};
+panel.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{appData[b.dataset.key]=appData[b.dataset.key].filter(o=>String(o.id)!==b.dataset.remove);saveApps();showFeaturePanel()});
+}
+function drawFeatureScreen(t){
+if(['reminders','alarms','timers','notes'].includes(mode)){ctx.fillStyle='#223e55';ctx.beginPath();ctx.roundRect(14,13,40,39,11);ctx.fill();txt('+',34,43,32,'#e5f6ff')}
+const titles={reminders:'REMINDERS',calendar:'CALENDAR',alarms:'ALARMS',timers:'TIMER',notes:'NOTES',games:'GAMES',pc:'PC COMPANION'};txt(titles[mode],240,47,25,'#91dfff');
+if(['reminders','calendar','alarms'].includes(mode)){const key=mode==='reminders'?'reminders':mode==='calendar'?'events':'alarms';const next=(Array.isArray(appData[key])?appData[key]:[]).filter(o=>!o.done).sort((a,b)=>a.when-b.when).slice(0,3);if(!next.length)txt('No upcoming items',240,147,22);next.forEach((o,i)=>{txt(o.text.slice(0,30),240,105+i*54,19);txt(shortTime(o.when),240,127+i*54,14,'#9aaec5')})}
+else if(mode==='notes'){const n=appData.notes[0];txt(n?'Latest note':'No notes yet',240,100,20);if(n){let words=n.text.slice(0,90);txt(words.slice(0,32),240,147,16);txt(words.slice(32,64),240,172,16);txt(words.slice(64,90),240,197,16)}}
+else if(mode==='timers'){let secs=appData.timerRunning?Math.max(0,Math.ceil((appData.timerEnd-Date.now())/1000)):appData.timerLeft;txt(`${Math.floor(secs/60).toString().padStart(2,'0')}:${(secs%60).toString().padStart(2,'0')}`,240,170,70);txt(appData.timerRunning?'Running':'Paused',240,220,19,'#9aaec5')}
+else if(mode==='games'){if(gameState.type&&(gameState.running||gameState.waiting||gameState.over))drawArcadeGame(t);else drawGameGallery(t)}
+else if(mode==='pc'){
+ const sample=pcDemo?{cpu:Math.round(30+12*Math.sin(t/1700)),ram:Math.round(56+4*Math.sin(t/3300)),temp:Math.round(47+3*Math.sin(t/2500)),battery:Math.round(76-6*Math.sin(t/8500)),plugged:true,wifi:'Connected',wifi_signal:84,wifi_bars:4}:pcStats;
+ const clock=new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+ ctx.fillStyle='#19374c';rr(376,17,91,31,10);txt(clock,421,38,15,'#e5f7ff');
+ txt(pcDemo?'● DEMONSTRATION':sample?'● CONNECTED':'○ NOT CONNECTED',240,79,13,pcDemo?'#f6cf7d':sample?'#83d9b5':'#9ebad0');
+ if(!sample){
+  ctx.fillStyle='#18344b';rr(54,113,372,107,16);
+  txt('No PC connected yet',240,150,22,'#e9f8ff');
+  txt('Open Manage to connect or try the demo',240,183,14,'#a4bfd1');
+ }else{
+  const cards=[{label:'CPU',value:sample.cpu+'%'},{label:'RAM',value:sample.ram+'%'},{label:'CPU TEMP',value:sample.temp==null?'N/A':sample.temp+'°C'},{label:'WI-FI',value:sample.wifi_bars==null?'N/A':sample.wifi_bars+'/4 bars',bars:sample.wifi_bars,signal:sample.wifi_signal}];
+  if(sample.battery!=null)cards.push({label:'BATTERY',value:sample.battery+'%'+(sample.plugged?' ⚡':'')});
+  const count=cards.length, cols=count===5?3:2,w=count===5?132:202,h=count===5?59:65,gap=12;
+  cards.forEach((c,i)=>{
+   const row=Math.floor(i/cols),rowCount=count===5?(row===0?3:2):2,col=i%cols;
+   const total=rowCount*w+(rowCount-1)*gap,x=(480-total)/2+col*(w+gap),y=96+row*(h+12);
+   ctx.fillStyle='#18344b';rr(x,y,w,h,12);ctx.strokeStyle='#365a73';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(x,y,w,h,12);ctx.stroke();
+   txt(c.label,x+w/2,y+18,11,'#9ebad0');
+   if(c.label==='WI-FI'&&c.bars!=null){
+    const barW=8,barGap=5,base=x+w/2-22;
+    for(let k=0;k<4;k++){const bh=8+k*5;ctx.fillStyle=k<c.bars?'#83d9b5':'#37546a';rr(base+k*(barW+barGap),y+47-bh,barW,bh,2)}
+    // Wi-Fi strength is communicated by the bars alone.
+   }else txt(c.value,x+w/2,y+45,c.value.length>11?15:23,'#f0f9ff');
+  });
+ }
+}
+if(mode!=='calendar'&&mode!=='games'){ctx.fillStyle='#29435c';rr(145,243,190,34,9);txt('Manage',240,266,16,'#e8f6ff')}}
+function drawGameGallery(t){
+ const cards=[{name:'SNAKE',x:36},{name:'DODGE',x:176},{name:'PONG',x:316}];
+ cards.forEach((card,i)=>{
+  const x=card.x,y=99,w=128,h=139;
+  ctx.fillStyle='#193248';rr(x,y,w,h,15);
+  ctx.strokeStyle='#456a83';ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect(x,y,w,h,15);ctx.stroke();
+  ctx.save();ctx.beginPath();ctx.roundRect(x+6,y+7,w-12,95,11);ctx.clip();
+  ctx.fillStyle='#0d2330';ctx.fillRect(x+6,y+7,w-12,95);
+  if(i===0){
+   const cells=[[0,3],[1,3],[2,3],[3,3],[3,2],[3,1]];
+   cells.forEach(([cx,cy],j)=>{ctx.fillStyle=j===0?'#b6ffe1':'#58dca8';rr(x+21+cx*17,y+22+cy*13,15,11,4)});
+   ctx.fillStyle='#ffc46e';ctx.beginPath();ctx.arc(x+99,y+35,7,0,Math.PI*2);ctx.fill();
+  }else if(i===1){
+   ctx.fillStyle='#ff728e';for(const [bx,by,r] of [[28,20,10],[88,39,13],[57,62,9]]){ctx.beginPath();ctx.arc(x+bx,y+by,r,0,Math.PI*2);ctx.fill()}
+   ctx.fillStyle='#ffd184';rr(x+48,y+80,30,12,6);
+  }else{
+   ctx.setLineDash([4,6]);ctx.strokeStyle='#31566d';ctx.beginPath();ctx.moveTo(x+64,y+12);ctx.lineTo(x+64,y+98);ctx.stroke();ctx.setLineDash([]);
+   ctx.fillStyle='#6de1ff';rr(x+33,y+82,62,8,4);ctx.beginPath();ctx.arc(x+78,y+45,9,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();txt(card.name,x+w/2,y+122,17,'#e5f8ff');
+ });
+ txt('Tap a game to play',240,267,15,'#9fb9cf');
+}
+function startGame(type){
+ gameState={type,running:false,waiting:true,over:false,score:0,last:performance.now(),acc:0,dir:'right',
+ snake:[{x:8,y:5},{x:7,y:5},{x:6,y:5}],food:{x:12,y:5},player:240,balls:[],
+ ball:{x:240,y:140,vx:145,vy:-160},paddle:240,held:0};
+ closeAppPanel();lastAction=performance.now();
+}
+function gameOver(){gameState.running=false;gameState.over=true;chirp()}
+function snakeTurn(dir){const opposite={up:'down',down:'up',left:'right',right:'left'};if(opposite[dir]!==gameState.dir)gameState.nextDir=dir}
+function arcadeInput(x,y,pressed=true){
+ const g=gameState;if(!g.type||g.over)return;
+ // Snake still starts with its arrow controls. Dodge and Pong start on any touch.
+ if(g.waiting){if(g.type==='snake'&&y<215)return;g.waiting=false;g.running=true;g.last=performance.now();g.acc=0}
+ if(!g.running)return;
+ lastAction=performance.now();
+ if(g.type==='snake'){
+  if(y>224){if(x<165)snakeTurn('left');else if(x>315)snakeTurn('right');else snakeTurn(y<268?'up':'down')}
+  else if(x<160)snakeTurn('left');else if(x>320)snakeTurn('right');else snakeTurn(y<125?'up':'down');
+ }else if(g.type==='dodge'){
+  // The character follows the finger/mouse horizontally, without arrow buttons.
+  g.held=0;g.player=Math.max(24,Math.min(456,x));
+ }else if(g.type==='pong'){
+  g.paddle=Math.max(55,Math.min(425,x));
+ }
+}
+function drawArcadeGame(t){
+ const g=gameState;
+ if(!g.type){txt('Choose Snake, Dodge or Pong',240,155,20,'#a9bdd1');return}
+ const dt=Math.min(.045,Math.max(0,(t-g.last)/1000));g.last=t;
+ if(g.running){
+  g.acc+=dt;
+  if(g.type==='snake'&&g.acc>.17){
+   g.acc=0;if(g.nextDir){g.dir=g.nextDir;g.nextDir=null}
+   const d={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[g.dir],head={x:g.snake[0].x+d[0],y:g.snake[0].y+d[1]};
+   const eat=head.x===g.food.x&&head.y===g.food.y;
+   if(head.x<0||head.x>=20||head.y<0||head.y>=10||g.snake.slice(0,eat?undefined:-1).some(p=>p.x===head.x&&p.y===head.y))gameOver();
+   else{g.snake.unshift(head);if(eat){g.score++;const occupied=new Set(g.snake.map(p=>p.x+','+p.y));let free=[];for(let y=0;y<10;y++)for(let x=0;x<20;x++)if(!occupied.has(x+','+y))free.push({x,y});if(!free.length)gameOver();else g.food=free[Math.floor(Math.random()*free.length)];chirp()}else g.snake.pop()}
+  }
+  if(g.type==='dodge'){
+   g.player=Math.max(24,Math.min(456,g.player+g.held*175*dt));
+   if(g.acc>.46){g.acc=0;g.balls.push({x:24+Math.random()*432,y:75,r:9+Math.random()*8})}
+   for(const b of g.balls){b.y+=(115+g.score*3)*dt;if(Math.abs(b.x-g.player)<b.r+19&&Math.abs(b.y-253)<b.r+15)gameOver();if(b.y>287)g.score++}
+   g.balls=g.balls.filter(b=>b.y<300);
+  }
+  if(g.type==='pong'){
+   const b=g.ball;b.x+=b.vx*dt;b.y+=b.vy*dt;
+   if(b.x<16||b.x>464){b.vx*=-1;b.x=Math.max(16,Math.min(464,b.x))}
+   if(b.y<76){b.vy=Math.abs(b.vy)}
+   if(b.y>=246&&b.y<265&&b.vy>0&&Math.abs(b.x-g.paddle)<57){b.vy=-Math.abs(b.vy)*1.035;b.vx+=(b.x-g.paddle)*1.4;g.score++;chirp()}
+   if(b.y>282)gameOver();
+  }
+ }
+ // Unified arcade styling: subtle borders, generous spacing, and consistent touch controls.
+ const rounded=(x,y,w,h,r,fill,stroke)=>{ctx.fillStyle=fill;rr(x,y,w,h,r);if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke()}};
+ const pill=(label,x,y,w=88)=>{rounded(x-w/2,y-18,w,36,12,'#203747','#3d5d6c');txt(label,x,y+6,19,'#e0f6ff')};
+ rounded(14,49,452,267,18,'#0d1924','#223b4a');
+ txt(({snake:'SNAKE',dodge:'DODGE',pong:'PONG'})[g.type],91,75,16,'#e9f7ff');
+ rounded(368,55,88,27,13,'#203747','#3a5b6d');
+ txt('SCORE  '+g.score,412,73,12,'#9ce8f4');
+ if(g.type==='snake'){
+  const boardX=60,boardY=91,tileW=18,tileH=12;
+  rounded(boardX-5,boardY-5,370,130,9,'#102b32','#3d6871');
+  ctx.strokeStyle='#ffffff0b';ctx.lineWidth=.5;
+  for(let x=1;x<20;x++){ctx.beginPath();ctx.moveTo(boardX+x*tileW,boardY);ctx.lineTo(boardX+x*tileW,boardY+120);ctx.stroke()}
+  for(let y=1;y<10;y++){ctx.beginPath();ctx.moveTo(boardX,boardY+y*tileH);ctx.lineTo(boardX+360,boardY+y*tileH);ctx.stroke()}
+  for(let i=g.snake.length-1;i>=0;i--){const p=g.snake[i];rounded(boardX+p.x*tileW+1,boardY+p.y*tileH+1,16,10,3,i===0?'#a7f9d5':'#5bd6aa')}
+  const fx=boardX+g.food.x*tileW+9,fy=boardY+g.food.y*tileH+6;
+  ctx.fillStyle='#ffbb75';ctx.beginPath();ctx.arc(fx,fy,4.7,0,Math.PI*2);ctx.fill();
+  pill('▲',240,238,67);pill('◀',124,273,74);pill('▼',240,273,67);pill('▶',356,273,74);
+ }else if(g.type==='dodge'){
+  rounded(30,89,420,177,12,'#102631','#315465');
+  ctx.strokeStyle='#ffffff10';ctx.setLineDash([5,10]);ctx.beginPath();ctx.moveTo(240,102);ctx.lineTo(240,253);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#ffb879';for(const b of g.balls){ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#ffe0b1';ctx.lineWidth=1.5;ctx.stroke()}
+  // Mini character, centered on the same collision position as the old triangle.
+  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.fillStyle='#ffe2b5';ctx.beginPath();ctx.arc(g.player,232,7,0,Math.PI*2);ctx.fill();
+  rounded(g.player-9,240,18,15,5,'#70e4d0');
+  ctx.strokeStyle='#70e4d0';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(g.player-8,244);ctx.lineTo(g.player-15,252);ctx.moveTo(g.player+8,244);ctx.lineTo(g.player+15,252);ctx.stroke();
+  ctx.strokeStyle='#b8e7ff';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(g.player-5,254);ctx.lineTo(g.player-7,263);ctx.moveTo(g.player+5,254);ctx.lineTo(g.player+7,263);ctx.stroke();
+  ctx.restore();
+  txt('Drag to move',240,296,14,'#88a9ba');
+ }else if(g.type==='pong'){
+  rounded(30,89,420,185,12,'#102631','#315465');
+  ctx.strokeStyle='#365668';ctx.setLineDash([7,10]);ctx.beginPath();ctx.moveTo(42,181);ctx.lineTo(438,181);ctx.stroke();ctx.setLineDash([]);
+  rounded(g.paddle-52,255,104,10,5,'#70e4d0');
+  ctx.shadowColor='#7be4ff';ctx.shadowBlur=11;ctx.fillStyle='#d2faff';ctx.beginPath();ctx.arc(g.ball.x,g.ball.y,9,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+  txt('Drag to move',240,297,14,'#88a9ba');
+ }
+ if(g.waiting){rounded(91,124,298,78,14,'#0a1724ed','#57778b');txt('READY?',240,153,23,'#eaf8ff');txt(g.type==='snake'?'Tap an arrow to start':'Tap to start',240,180,15,'#aac3d2')}
+ if(g.over){rounded(78,106,324,117,16,'#0a1724f5','#57778b');txt('GAME OVER',240,148,24,'#eaf8ff');txt('Score  '+g.score,240,176,18,'#80e8cf');txt('Tap to choose another game',240,204,13,'#aac3d2')}
+
+}
+function featureTap(x,y){if(mode==='calendar')return;
+ if(mode!=='games'&&y>=238&&y<=284){openAppPanel();return}if(['reminders','alarms','timers','notes'].includes(mode)&&x>=10&&x<=64&&y>=8&&y<=60){if(mode==='reminders'){openReminderCreate()}else if(mode==='calendar'){calendarView=new Date();calendarView.setDate(1);calendarSelectedDate=calendarDateKey(new Date());openAppPanel()}else{openAppPanel()}return}if(mode==='games'){if(gameState.running||gameState.waiting)arcadeInput(x,y);else if(gameState.over){gameState.over=false;gameState.type=null}else if(y>=95&&y<=245){const idx=Math.floor((x-32)/140);if(idx>=0&&idx<3)startGame(['snake','dodge','pong'][idx])}}else if(mode==='timers'){if(appData.timerRunning){appData.timerLeft=Math.max(0,Math.ceil((appData.timerEnd-Date.now())/1000));appData.timerRunning=false}else{appData.timerEnd=Date.now()+appData.timerLeft*1000;appData.timerRunning=true}saveApps();showFeaturePanel()}}
+let reminderBannerTimeout=null;
+function flashReminder(text){
+ const banner=$('reminderBanner');
+ $('reminderBannerText').textContent=text;
+ banner.hidden=false;
+ if(reminderBannerTimeout!==null)clearTimeout(reminderBannerTimeout);
+ reminderBannerTimeout=setTimeout(()=>{banner.hidden=true;reminderBannerTimeout=null},4500);
+}
+function notifyBuddy(text){flashReminder(text);$('status').textContent=text;chirp();setTimeout(chirp,220);if('Notification' in window&&Notification.permission==='granted')new Notification('Buddy',{body:text})}
+function checkSchedule(){const now=Date.now();for(const key of ['reminders','events','alarms']){for(const item of appData[key]){if(!item.done&&item.when<=now){item.done=true;notifyBuddy(item.text);saveApps()}}}if(appData.timerRunning&&appData.timerEnd<=now){appData.timerRunning=false;appData.timerLeft=0;notifyBuddy('Timer finished!');saveApps();if(mode==='timers')showFeaturePanel()}}
+setInterval(checkSchedule,1000);
+async function pollPC(){if(!pcPollUrl)return;try{const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),1800);const res=await fetch(pcPollUrl,{signal:controller.signal});clearTimeout(timeout);if(!res.ok)throw Error('Not available');const data=await res.json();pcStats={cpu:Number(data.cpu).toFixed(0),ram:Number(data.ram).toFixed(0),temp:data.temp??null,battery:data.battery??null,plugged:data.plugged??null,wifi:data.wifi??'Unknown',wifi_signal:data.wifi_signal??null,wifi_bars:data.wifi_bars??null};if(mode==='pc'&&$('pcStatus')&&!pcDemo){$('pcStatus').textContent='● Connected automatically';}}catch{pcStats=null;if(mode==='pc'&&$('pcStatus')&&!pcDemo)$('pcStatus').textContent='○ Waiting for Buddy Connect on this PC'}}
+setInterval(()=>{if(pcPollUrl)pollPC()},3000);pollPC();
+
+// Virtual touchscreen keyboard for all editable text/number fields inside Buddy's screen.
+const screenRoot=$('screen'),keyboard=$('touchKeyboard'),keyHolder=$('keyboardKeys');
+let typingTarget=null,keyboardShift=false;
+function updateKeyboardPreview(){if(typingTarget)$('keyboardPreview').textContent=typingTarget.value||' ';}
+function closeTouchKeyboard(){keyboard.hidden=true;typingTarget=null;}
+function keyPress(k){if(!typingTarget)return;const el=typingTarget;let v=el.value||'',a=el.selectionStart??v.length,b=el.selectionEnd??a;
+ if(k==='shift'){keyboardShift=!keyboardShift;renderKeys();return}
+ if(k==='back'){if(a===b&&a>0)a--;el.value=v.slice(0,a)+v.slice(b)}
+ else {const ch=k==='space'?' ':k==='enter'?'\n':keyboardShift?k.toUpperCase():k;el.value=v.slice(0,a)+ch+v.slice(b);a+=ch.length;keyboardShift=false;renderKeys()}
+ if(el.maxLength>0&&el.value.length>el.maxLength)el.value=el.value.slice(0,el.maxLength);
+ el.dispatchEvent(new Event('input',{bubbles:true}));updateKeyboardPreview();
+ try{el.setSelectionRange(a,a)}catch{}
+}
+function parseTimerDuration(value){
+ const parts=String(value||'').split(':');
+ const mins=Number(parts[0]||0),secs=Number(parts[1]||0);
+ const total=Math.floor(mins*60+secs);
+ return Number.isFinite(total)?Math.max(1,Math.min(59940,total)):300;
+}
+let timerKeyboardFresh=false;
+function timerKeyPress(key){
+ if(!typingTarget)return;
+ let value=timerKeyboardFresh?'':typingTarget.value;
+ if(key==='back'){value=value.slice(0,-1);timerKeyboardFresh=false}
+ else if(key===':'){if(!value.includes(':'))value=(value||'0')+':';timerKeyboardFresh=false}
+ else if(/^\d$/.test(key)){if(value.replace(/\D/g,'').length>=5)return;value+=key;timerKeyboardFresh=false}
+ typingTarget.value=value;
+ typingTarget.dispatchEvent(new Event('input',{bubbles:true}));
+ updateKeyboardPreview();
+}
+function renderTimerKeys(){
+ keyHolder.replaceChildren();
+ for(const keys of [['1','2','3'],['4','5','6'],['7','8','9'],[':','0','⌫']]){
+  const row=document.createElement('div');row.className='touch-key-row';
+  for(const k of keys){const b=document.createElement('button');b.type='button';b.className='touch-key';b.textContent=k;b.addEventListener('pointerdown',e=>e.preventDefault());b.onclick=()=>timerKeyPress(k==='⌫'?'back':k);row.append(b)}
+  keyHolder.append(row);
+ }
+}
+function renderKeys(){keyHolder.replaceChildren();const numeric=typingTarget&&typingTarget.type==='number';const rows=numeric?['123','456','789','-0.']:['qwertyuiop','asdfghjkl','⇧zxcvbnm⌫'];
+ for(const chars of rows){const row=document.createElement('div');row.className='touch-key-row';for(const c of chars){const btn=document.createElement('button');btn.type='button';btn.className='touch-key';btn.textContent=keyboardShift?c.toUpperCase():c;btn.addEventListener('pointerdown',e=>e.preventDefault());btn.onclick=()=>keyPress(c==='⇧'?'shift':c==='⌫'?'back':c);row.append(btn)}keyHolder.append(row)}
+ if(!numeric){const row=document.createElement('div');row.className='touch-key-row';for(const [text,key,cls] of [['123','123','wide'],[',',',',''],['Space','space','space'],['.','.',''],['-','-','']]){const btn=document.createElement('button');btn.type='button';btn.className='touch-key '+cls;btn.textContent=text;btn.addEventListener('pointerdown',e=>e.preventDefault());btn.onclick=()=>{if(key==='123'){renderNumberKeys();return}keyPress(key)};row.append(btn)}keyHolder.append(row)}
+}
+function renderNumberKeys(){keyHolder.replaceChildren();for(const chars of ['1234567890','-/:;()$&@','.,?!']){const row=document.createElement('div');row.className='touch-key-row';for(const c of chars){const b=document.createElement('button');b.type='button';b.className='touch-key';b.textContent=c;b.onclick=()=>keyPress(c);row.append(b)}keyHolder.append(row)}const b=document.createElement('button');b.type='button';b.className='touch-key';b.textContent='ABC';b.onclick=renderKeys;keyHolder.append(b)}
+function openTouchKeyboard(el){if(!el||el.disabled)return;typingTarget=el;keyboardShift=false;timerKeyboardFresh=el.id==='timerMinutes';$('keyboardLabel').textContent=el.placeholder||'Enter text';updateKeyboardPreview();if(el.id==='timerMinutes')renderTimerKeys();else renderKeys();keyboard.hidden=false;lastAction=performance.now()}
+$('keyboardDone').onclick=closeTouchKeyboard;
+
+// Delegation handles inputs generated later in the Manage panels.
+screenRoot.addEventListener('pointerdown',e=>{const el=e.target.closest('input,textarea');if(!el||el.type==='hidden'||el.type==='checkbox'||el.type==='datetime-local'||keyboard.contains(el))return;
+ if(['text','number','search','email','url','tel'].includes(el.type)||el.tagName==='TEXTAREA'){e.preventDefault();openTouchKeyboard(el)}},true);
+screenRoot.addEventListener('click',e=>{const el=e.target.closest('input,textarea');if(el&&el.type==='datetime-local'){e.preventDefault();openTouchDatePicker(el)}},true);
+
+let pickerTarget=null,pickerDate=new Date();const picker=$('touchDatePicker');
+const pad2=n=>String(n).padStart(2,'0');
+function localDateTime(d){return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes())}
+function updateReminderDateDisplay(){const v=$('reminderDate').value;$('reminderDateDisplay').textContent=v?new Date(v).toLocaleString([],{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'  ▾':'Choose date and time ▾'}
+function openTouchDatePicker(el){closeTouchKeyboard();pickerTarget=el;const d=new Date(el.value);pickerDate=Number.isFinite(d.getTime())?d:new Date(Date.now()+3600000);picker.hidden=false;renderTouchDatePicker();lastAction=performance.now()}
+function renderTouchDatePicker(){const d=pickerDate;$('pickerMonth').textContent=d.toLocaleString([],{month:'long',year:'numeric'});$('pickerHour').textContent=String(d.getHours()%12||12);$('pickerMinute').textContent=pad2(d.getMinutes());$('pickerAmPm').textContent=d.getHours()>=12?'PM':'AM';const grid=$('pickerDays');grid.replaceChildren();for(const day of ['S','M','T','W','T','F','S']){const label=document.createElement('div');label.className='picker-week';label.textContent=day;grid.append(label)}const first=new Date(d.getFullYear(),d.getMonth(),1).getDay(),last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();for(let i=0;i<first;i++){const spacer=document.createElement('div');grid.append(spacer)}for(let n=1;n<=last;n++){const b=document.createElement('button');b.type='button';b.textContent=n;if(n===d.getDate())b.className='selected';b.onclick=()=>{pickerDate.setDate(n);renderTouchDatePicker()};grid.append(b)}}
+$('pickerPrev').onclick=()=>{pickerDate.setDate(1);pickerDate.setMonth(pickerDate.getMonth()-1);renderTouchDatePicker()};
+$('pickerNext').onclick=()=>{pickerDate.setDate(1);pickerDate.setMonth(pickerDate.getMonth()+1);renderTouchDatePicker()};
+for(const [id,unit,delta] of [['hourDown','Hours',-1],['hourUp','Hours',1],['minuteDown','Minutes',-1],['minuteUp','Minutes',1]])$(id).onclick=()=>{pickerDate['set'+unit](pickerDate['get'+unit]()+delta);renderTouchDatePicker()};
+$('pickerAmPm').onclick=()=>{pickerDate.setHours(pickerDate.getHours()+12);renderTouchDatePicker()};
+$('pickerCancel').onclick=()=>{picker.hidden=true;pickerTarget=null};
+$('pickerConfirm').onclick=()=>{if(pickerTarget){pickerTarget.value=localDateTime(pickerDate);pickerTarget.dispatchEvent(new Event('change',{bubbles:true}));if(pickerTarget.id==='reminderDate')updateReminderDateDisplay()}picker.hidden=true;pickerTarget=null};
+
+
+// Tap for a small scroll, or hold for a smooth slow continuous scroll.
+const scrollArrows=$('scrollArrows');
+let scrollingTimer=null,scrollingDirection=0;
+function scrollArea(){
+ if(!$('reminderCreate').hidden)return $('reminderCreate');
+ if(!panel.hidden)return panel;
+ return null;
+}
+function updateScrollArrows(){
+ const area=scrollArea();
+ const available=!!area&&area.scrollHeight>area.clientHeight+3&&!(!$('touchKeyboard').hidden||!$('touchDatePicker').hidden);
+ if(scrollArrows.hidden===available)scrollArrows.hidden=!available;
+ if(!available){stopArrowScroll();return;}
+ $('scrollUp').disabled=area.scrollTop<=1;
+ $('scrollDown').disabled=area.scrollTop+area.clientHeight>=area.scrollHeight-2;
+}
+function stopArrowScroll(){if(scrollingTimer!==null){clearInterval(scrollingTimer);scrollingTimer=null;}scrollingDirection=0;}
+function startArrowScroll(direction){
+ stopArrowScroll();const area=scrollArea();if(!area)return;
+ scrollingDirection=direction;
+ area.scrollBy({top:direction*24,behavior:'instant'});
+ updateScrollArrows();
+ scrollingTimer=setInterval(()=>{const target=scrollArea();if(!target){stopArrowScroll();return;}target.scrollTop+=scrollingDirection*10;updateScrollArrows();},40);
+}
+for(const [id,direction] of [['scrollUp',-1],['scrollDown',1]]){
+ const button=$(id);
+ button.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();button.setPointerCapture(e.pointerId);startArrowScroll(direction)});
+ for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,stopArrowScroll);
+ button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation()});
+}
+new MutationObserver(updateScrollArrows).observe($('screen'),{attributes:true,attributeFilter:['hidden'],subtree:true,childList:true});
+panel.addEventListener('scroll',updateScrollArrows,{passive:true});
+$('reminderCreate').addEventListener('scroll',updateScrollArrows,{passive:true});
+window.addEventListener('resize',updateScrollArrows);
+requestAnimationFrame(updateScrollArrows);
+</script></body></html>
