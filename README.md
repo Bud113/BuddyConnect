@@ -1,4 +1,4 @@
-Buddy Connect v8.2.1 - Polished CustomTkinter UI
+Buddy Connect v8.2.1
 
 Changes: larger scalable Buddy preview, real Buddy icon in header, four rounded Organizer cards with add dialogs and saved item previews, and tutorial Finish button on step 4.
 
