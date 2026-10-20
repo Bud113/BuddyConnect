@@ -1,5 +1,7 @@
-Buddy Connect v8.2.1
+# Buddy Connect v8.2.2
 
-Changes: larger scalable Buddy preview, real Buddy icon in header, four rounded Organizer cards with add dialogs and saved item previews, and tutorial Finish button on step 4.
-
-On Windows, run build_windows.bat to install dependencies and compile dist/BuddyConnect.exe. Back up your previous EXE and test before publishing a GitHub release. Existing settings and organizer data stay in %APPDATA%\BuddyConnect.
+- Settings sub-tabs now highlight the currently selected section.
+- Update URL field removed. Check for Updates discovers the latest GitHub release automatically.
+- Downloads require a matching SHA-256 in `update.json` (version and URL must match latest release) or a release asset named `BuddyConnect.exe.sha256` containing the 64-character SHA-256.
+- Run `build_windows.bat` on Windows to build `dist/BuddyConnect.exe`.
+- Do not publish an EXE without testing the Windows build.

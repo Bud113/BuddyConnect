@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from tkinter import messagebox, ttk, filedialog, colorchooser
 import calendar
 
-APP_VERSION='8.2.1'
+APP_VERSION='8.2.2'
 PORT=8765
 RUN_KEY=r'Software\Microsoft\Windows\CurrentVersion\Run'
 NAME='BuddyConnect'
@@ -287,6 +287,7 @@ def app():
             font=ctk.CTkFont(family='Segoe UI',size=14,weight='bold'))
         tile.grid(row=i//2,column=i%2,sticky='ew',padx=(0,4) if i%2==0 else (4,0),pady=(0,7))
         nav[title]=tile
+    settings_tab_buttons={}
     def show(name):
         for f in pages.values():f.pack_forget()
         if name=='Settings':
@@ -298,6 +299,12 @@ def app():
         else:pages[name].pack(fill='both',expand=True)
         for key,tile in nav.items():
             tile.configure(fg_color='#25374d' if key==name or (name=='Advanced' and key=='Settings') else CARD)
+        if settings_tab_buttons:
+            for tab,button in settings_tab_buttons.items():
+                selected=(name=='Settings' and tab=='Settings') or (name=='Advanced' and tab=='Advanced')
+                button.configure(fg_color=ACC if selected else '#294660',
+                    hover_color='#7be4ff' if selected else '#365a79',
+                    text_color=BG if selected else FG)
         if name=='Organizer':render_organizer()
     for name,tile in nav.items():tile.configure(command=lambda n=name:show(n))
     def panel(parent,title):
@@ -312,8 +319,11 @@ def app():
     # Friendly settings tabs, with advanced connection controls tucked away.
     settings_tabs=ctk.CTkFrame(pages['Settings'],fg_color=BG,corner_radius=0)
     settings_tabs.pack(anchor='w',fill='x',pady=(0,14))
-    btn(settings_tabs,'Buddy settings',lambda:show('Settings'),True).pack(side='left',padx=(0,8))
-    btn(settings_tabs,'Connection & updates',lambda:show('Advanced')).pack(side='left')
+    buddy_tab=btn(settings_tabs,'Buddy settings',lambda:show('Settings'),True)
+    buddy_tab.pack(side='left',padx=(0,8))
+    connection_tab=btn(settings_tabs,'Connection & updates',lambda:show('Advanced'))
+    connection_tab.pack(side='left')
+    settings_tab_buttons.update({'Settings':buddy_tab,'Advanced':connection_tab})
     # Home is a single card, matching the supplied visual reference.
     dash=pages['Home']
     home_card=ctk.CTkFrame(dash,fg_color=CARD,corner_radius=19);home_card.pack(fill='both',expand=True)
@@ -549,27 +559,17 @@ def app():
         except Exception as e:messagebox.showerror('Error',str(e))
     btn(cp,'Disable automatic startup',disable).pack(anchor='w')
     label(cp,'Buddy OS browser simulator must run on this PC. Physical ESP32 firmware is not included.',10,MUTED,wraplength=620).pack(anchor='w',pady=(16,0))
-    # The update source is a publisher-controlled HTTPS JSON manifest, configured once.
-    # Check and download occur on a worker thread so the GUI stays responsive.
+    # Automatically discover the newest GitHub release. No editable URL field.
     up=panel(pages['Connection'],'Updates')
-    label(up,'Updates use a verified SHA-256 download from your release source.',10,MUTED).pack(anchor='w')
-    manifest_file=DATA_DIR/'update_source.txt'
-    manifest_var=tk.StringVar(value=manifest_file.read_text(encoding='utf-8').strip() if manifest_file.exists() else '')
-    lineup=line(up,'Update source (advanced)')
-    tk.Entry(lineup,textvariable=manifest_var,width=46,bg='#0e1c2d',fg=FG,insertbackground=FG,relief='flat').pack(side='right')
-    update_status=tk.StringVar(value='Configure a published update URL to enable checks.')
+    label(up,'Automatically checks GitHub for the newest Buddy Connect release.',10,MUTED).pack(anchor='w')
+    update_status=tk.StringVar(value='Click Check for updates to check GitHub.')
     tk.Label(up,textvariable=update_status,bg=CARD,fg=MUTED,wraplength=620,justify='left').pack(anchor='w',pady=8)
     def check_updates():
-        url=manifest_var.get().strip()
-        if not url.startswith('https://'):
-            update_status.set('Enter an HTTPS manifest URL first.');return
-        DATA_DIR.mkdir(parents=True,exist_ok=True)
-        manifest_file.write_text(url,encoding='utf-8')
         update_status.set('Checking for updates...')
         def work():
             try:
                 import buddy_updater
-                result=buddy_updater.check(url,APP_VERSION)
+                result=buddy_updater.check_latest(APP_VERSION)
                 def finished():
                     if result is None:update_status.set('Buddy Connect is up to date (v'+APP_VERSION+').');return
                     update_status.set('Update v'+result['version']+' available.')

@@ -31,6 +31,50 @@ def check(manifest_url,current):
     if not isinstance(digest,str) or not re.fullmatch('[a-fA-F0-9]{64}',digest):raise ValueError('Invalid SHA-256')
     return {'version':data['version'],'url':url,'sha256':digest.lower()}
 
+
+# Fixed publisher identity: users never need to paste an update URL.
+LATEST_RELEASE_API='https://api.github.com/repos/Bud113/BuddyConnect/releases/latest'
+MANIFEST_URL='https://raw.githubusercontent.com/Bud113/BuddyConnect/main/update.json'
+
+def _read_json(url, limit=128*1024):
+    req=urllib.request.Request(url,headers={'User-Agent':'BuddyConnect-Updater/1','Accept':'application/vnd.github+json'})
+    with urllib.request.urlopen(req,timeout=15) as response:
+        raw=response.read(limit+1)
+    if len(raw)>limit:raise ValueError('GitHub response too large')
+    return json.loads(raw)
+
+def check_latest(current):
+    """Discover the newest GitHub release, then require a trusted checksum.
+
+    Accept a matching SHA-256 from update.json, or a release .sha256 sidecar.
+    Never install an unverified binary.
+    """
+    release=_read_json(LATEST_RELEASE_API)
+    version=str(release.get('tag_name','')).removeprefix('v')
+    if version_tuple(version)<=version_tuple(current):return None
+    assets=release.get('assets',[])
+    executable=next((a for a in assets if a.get('name')=='BuddyConnect.exe'),None)
+    if executable is None:raise ValueError('Latest GitHub release has no BuddyConnect.exe attachment')
+    url=executable['browser_download_url']
+    digest=None
+    try:
+        manifest=_read_json(MANIFEST_URL,8192)
+        if (manifest.get('version')==version and manifest.get('url')==url
+                and re.fullmatch(r'[a-fA-F0-9]{64}',str(manifest.get('sha256','')))):
+            digest=manifest['sha256'].lower()
+    except (OSError,ValueError,KeyError,json.JSONDecodeError):pass
+    if digest is None:
+        sidecar=next((a for a in assets if a.get('name') in ('BuddyConnect.exe.sha256','BuddyConnect.sha256')),None)
+        if sidecar:
+            req=urllib.request.Request(sidecar['browser_download_url'],headers={'User-Agent':'BuddyConnect-Updater/1'})
+            with urllib.request.urlopen(req,timeout=15) as response:raw=response.read(2049)
+            if len(raw)>2048:raise ValueError('Checksum file too large')
+            match=re.match(rb'^\s*([0-9a-fA-F]{64})(?:\s|$)',raw)
+            if match:digest=match.group(1).decode('ascii').lower()
+    if digest is None:
+        raise ValueError('No verified SHA-256 for latest release. Publish a matching update.json or BuddyConnect.exe.sha256 asset.')
+    return {'version':version,'url':url,'sha256':digest}
+
 def download(release):
     folder=Path(tempfile.mkdtemp(prefix='buddy-connect-update-'))
     target=folder/'BuddyConnect-new.exe'
