@@ -1,7 +1,7 @@
 
 {
-  "version": "8.2.2",
-  "url": "https://github.com/Bud113/BuddyConnect/releases/download/v8.2.2/BuddyConnect.exe",
-  "sha256": "750D814DEEE2AE6620D85F6EF5B95F04D847D8DCC72D127CA5835076DA07E813",
-  "notes": "Buddy Connect v8.2.2."
+  "version": "8.3.0",
+  "url": "https://github.com/Bud113/BuddyConnect/releases/download/v8.3.0/BuddyConnect.exe",
+  "sha256": "FE6DF10B8F8D7B1CFEF227CFB40DEE9F31777CB6D5CC70F268FE6D709DBB508A",
+  "notes": "Buddy Connect v8.3.0, added pc stats dashboard."
 }
