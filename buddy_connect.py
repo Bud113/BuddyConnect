@@ -107,6 +107,45 @@ def wifi_signal():
 
 def run_agent():
     import psutil
+    # Single sampling loop: the desktop UI and simulator read this same snapshot.
+    # A 250ms cadence is responsive without running blocking CPU measurements per request.
+    stats_lock=threading.Lock()
+    snapshot={'cpu':0.0,'ram':0.0,'disk':None,'temp':None,'battery':None,
+              'plugged':None,'wifi':'Unknown','wifi_signal':None,'wifi_bars':None,'sample_id':0}
+    def sample_stats():
+        psutil.cpu_percent(interval=None)  # Prime this process's CPU counter.
+        count=0
+        while True:
+            try:
+                cpu=psutil.cpu_percent(interval=None)
+                mem=psutil.virtual_memory().percent
+                data={'cpu':round(cpu,1),'ram':round(mem,1)}
+                # Slower-changing measurements are refreshed once every ~2 seconds.
+                if count%8==0:
+                    data['disk']=psutil.disk_usage(os.environ.get('SystemDrive','C:')+'\\' if os.name=='nt' else '/').percent
+                    try:
+                        temps=psutil.sensors_temperatures() or {}
+                        data['temp']=next((x.current for group in temps.values() for x in group if x.current is not None),None)
+                    except (AttributeError,OSError,RuntimeError):data['temp']=None
+                    try:
+                        bat=psutil.sensors_battery()
+                        data['battery']=round(bat.percent) if bat else None
+                        data['plugged']=bool(bat.power_plugged) if bat else None
+                    except (OSError,RuntimeError,AttributeError):data['battery']=None;data['plugged']=None
+                    try:
+                        interfaces=psutil.net_if_stats();active=[name for name,info in interfaces.items() if info.isup]
+                        wireless=[name for name in active if any(word in name.lower() for word in ('wi-fi','wifi','wireless','wlan'))]
+                        data['wifi']='Connected' if wireless else ('Not connected' if active else 'Offline')
+                    except Exception:data['wifi']='Unknown'
+                    data['wifi_signal'],data['wifi_bars']=wifi_signal()
+                with stats_lock:
+                    snapshot.update(data)
+                    snapshot['sample_id']+=1
+            except Exception:
+                pass
+            count+=1
+            threading.Event().wait(.25)
+    threading.Thread(target=sample_stats,daemon=True,name='BuddyStatsSampler').start()
     def refresh_saved_state():
         # GUI and agent are separate processes: pick up settings saved by either.
         latest=load_state()
@@ -152,24 +191,8 @@ def run_agent():
                 with state_lock:self.respond(200,dict(state))
                 return
             if route!='/stats':self.send_error(404);return
-            temp=None
-            try:
-                readings=psutil.sensors_temperatures() or {}
-                temp=next((x.current for group in readings.values() for x in group if x.current is not None),None)
-            except (AttributeError,OSError,RuntimeError):pass
-            battery=plugged=None
-            try:
-                b=psutil.sensors_battery()
-                if b is not None:battery=round(b.percent);plugged=bool(b.power_plugged)
-            except (OSError,RuntimeError,AttributeError):pass
-            wifi='Unknown'
-            try:
-                interfaces=psutil.net_if_stats();active=[name for name,info in interfaces.items() if info.isup]
-                wireless=[name for name in active if any(word in name.lower() for word in ('wi-fi','wifi','wireless','wlan'))]
-                wifi='Connected' if wireless else ('Not connected' if active else 'Offline')
-            except Exception:pass
-            signal,bars=wifi_signal()
-            self.respond(200,{'wifi':wifi,'wifi_signal':signal,'wifi_bars':bars,'cpu':psutil.cpu_percent(interval=.1),'ram':psutil.virtual_memory().percent,'temp':temp,'battery':battery,'plugged':plugged})
+            with stats_lock:
+                self.respond(200,dict(snapshot))
         def do_POST(self):
             if not self.origin_ok() or self.headers.get('X-Buddy-Client')!='simulator':self.send_error(403);return
             route=self.path.split('?')[0]
@@ -349,30 +372,22 @@ def app():
         stat_fields[key]=value
     def refresh_pc_stats():
         try:
-            import psutil
-            cpu=psutil.cpu_percent(interval=None)
-            mem=psutil.virtual_memory().percent
-            disk=psutil.disk_usage(os.environ.get('SystemDrive','C:')+'\\' if os.name=='nt' else '/').percent
-            bat=psutil.sensors_battery()
-            battery=('%.0f%%'%bat.percent)+(' · Charging' if bat.power_plugged else '') if bat else 'N/A'
-            temperature='N/A'
-            try:
-                temps=psutil.sensors_temperatures() or {}
-                t=next((x.current for group in temps.values() for x in group if x.current is not None),None)
-                if t is not None:temperature=f'{t:.0f}°C'
-            except (AttributeError,OSError,RuntimeError):pass
-            signal,bars=wifi_signal()
-            if bars is not None:wifi=f'{bars}/4 bars'
-            else:
-                try:
-                    nets=psutil.net_if_stats()
-                    wifi='Connected' if any(n.isup and any(x in k.lower() for x in ('wi-fi','wifi','wlan','wireless')) for k,n in nets.items()) else 'N/A'
-                except Exception:wifi='N/A'
-            values={'cpu':f'{cpu:.0f}%','ram':f'{mem:.0f}%','disk':f'{disk:.0f}%','battery':battery,'temp':temperature,'wifi':wifi}
+            with urllib.request.urlopen(f'http://127.0.0.1:{PORT}/stats',timeout=.45) as response:
+                data=json.load(response)
+            cpu=data.get('cpu');mem=data.get('ram');disk=data.get('disk')
+            bat=data.get('battery');plugged=data.get('plugged')
+            temp=data.get('temp');bars=data.get('wifi_bars')
+            wifi=f'{bars}/4 bars' if bars is not None else data.get('wifi','N/A')
+            values={'cpu':f'{cpu:.0f}%' if cpu is not None else 'N/A',
+                    'ram':f'{mem:.0f}%' if mem is not None else 'N/A',
+                    'disk':f'{disk:.0f}%' if disk is not None else 'N/A',
+                    'battery':(f'{bat:.0f}%'+(' · Charging' if plugged else '')) if bat is not None else 'N/A',
+                    'temp':f'{temp:.0f}°C' if temp is not None else 'N/A','wifi':wifi}
             for k,v in values.items():stat_fields[k].configure(text=v)
-            stats_status.set('Live · refreshes every 2 seconds')
-        except Exception as exc:stats_status.set('Stats unavailable: '+str(exc)[:75])
-        root.after(2000,refresh_pc_stats)
+            stats_status.set('Live · shared with Buddy · 0.25s sampling')
+        except Exception as exc:
+            stats_status.set('Waiting for Buddy Connect agent: '+str(exc)[:45])
+        root.after(250,refresh_pc_stats)
     root.after(600,refresh_pc_stats)
     # Home is a single card, matching the supplied visual reference.
     dash=pages['Home']
