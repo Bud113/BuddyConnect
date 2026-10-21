@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from tkinter import messagebox, ttk, filedialog, colorchooser
 import calendar
 
-APP_VERSION='8.2.2'
+APP_VERSION='8.3.0'
 PORT=8765
 RUN_KEY=r'Software\Microsoft\Windows\CurrentVersion\Run'
 NAME='BuddyConnect'
@@ -277,11 +277,11 @@ def app():
     footer=ctk.CTkFrame(main,fg_color=BG,corner_radius=0);footer.pack(fill='x',padx=8,pady=(8,11))
     info=tk.StringVar(value='All changes save automatically')
     pages={};nav={}
-    icons={'Home':'⌂','Appearance':'◉','Settings':'☷','Organizer':'▦'}
-    for title in ('Home','Appearance','Settings','Organizer','Behavior','Connection'):
+    icons={'Home':'⌂','Appearance':'◉','Settings':'☷','Organizer':'▦','PC Stats':'▥'}
+    for title in ('Home','Appearance','Settings','Organizer','PC Stats','Behavior','Connection'):
         pages[title]=ctk.CTkFrame(content,fg_color=BG,corner_radius=0)
         if title in ('Behavior','Connection'):continue
-        i={'Home':0,'Appearance':1,'Settings':2,'Organizer':3}[title]
+        i={'Home':0,'Appearance':1,'Settings':2,'Organizer':3,'PC Stats':4}[title]
         tile=ctk.CTkButton(navstrip,text=icons[title]+'   '+title,anchor='w',height=46,
             corner_radius=13,fg_color=CARD,hover_color='#2b425c',text_color=FG,
             font=ctk.CTkFont(family='Segoe UI',size=14,weight='bold'))
@@ -324,6 +324,56 @@ def app():
     connection_tab=btn(settings_tabs,'Connection & updates',lambda:show('Advanced'))
     connection_tab.pack(side='left')
     settings_tab_buttons.update({'Settings':buddy_tab,'Advanced':connection_tab})
+    # Live PC statistics use the same psutil source as the local Buddy agent.
+    stats_page=pages['PC Stats']
+    stats_header=ctk.CTkFrame(stats_page,fg_color=BG,corner_radius=0)
+    stats_header.pack(fill='x',pady=(0,12))
+    ctk.CTkLabel(stats_header,text='PC Stats',font=ctk.CTkFont(family='Segoe UI',size=19,weight='bold'),text_color=FG).pack(side='left')
+    stats_status=tk.StringVar(value='Reading your computer...')
+    ctk.CTkLabel(stats_header,textvariable=stats_status,text_color=MUTED,font=ctk.CTkFont(size=11)).pack(side='right')
+    stats_grid=ctk.CTkFrame(stats_page,fg_color=BG,corner_radius=0)
+    stats_grid.pack(fill='both',expand=True)
+    for c in (0,1):stats_grid.grid_columnconfigure(c,weight=1,uniform='stat')
+    for r in (0,1,2):stats_grid.grid_rowconfigure(r,weight=1)
+    stat_fields={}
+    for i,(key,heading,detail) in enumerate((
+        ('cpu','CPU usage','Processor load'),('ram','Memory usage','System RAM'),
+        ('disk','Storage usage','System drive'),('battery','Battery','Power status'),
+        ('temp','CPU temperature','If supported'),('wifi','Wi-Fi','Connection status'))):
+        tile=ctk.CTkFrame(stats_grid,fg_color=CARD,corner_radius=18)
+        tile.grid(row=i//2,column=i%2,sticky='nsew',padx=(0,5) if i%2==0 else (5,0),pady=(0,10))
+        ctk.CTkLabel(tile,text=heading,text_color=MUTED,font=ctk.CTkFont(size=12)).pack(anchor='w',padx=17,pady=(13,0))
+        value=ctk.CTkLabel(tile,text='—',text_color=ACC,font=ctk.CTkFont(family='Segoe UI',size=25,weight='bold'))
+        value.pack(anchor='w',padx=17,pady=(2,0))
+        ctk.CTkLabel(tile,text=detail,text_color=MUTED,font=ctk.CTkFont(size=10)).pack(anchor='w',padx=17,pady=(0,10))
+        stat_fields[key]=value
+    def refresh_pc_stats():
+        try:
+            import psutil
+            cpu=psutil.cpu_percent(interval=None)
+            mem=psutil.virtual_memory().percent
+            disk=psutil.disk_usage(os.environ.get('SystemDrive','C:')+'\\' if os.name=='nt' else '/').percent
+            bat=psutil.sensors_battery()
+            battery=('%.0f%%'%bat.percent)+(' · Charging' if bat.power_plugged else '') if bat else 'N/A'
+            temperature='N/A'
+            try:
+                temps=psutil.sensors_temperatures() or {}
+                t=next((x.current for group in temps.values() for x in group if x.current is not None),None)
+                if t is not None:temperature=f'{t:.0f}°C'
+            except (AttributeError,OSError,RuntimeError):pass
+            signal,bars=wifi_signal()
+            if bars is not None:wifi=f'{bars}/4 bars'
+            else:
+                try:
+                    nets=psutil.net_if_stats()
+                    wifi='Connected' if any(n.isup and any(x in k.lower() for x in ('wi-fi','wifi','wlan','wireless')) for k,n in nets.items()) else 'N/A'
+                except Exception:wifi='N/A'
+            values={'cpu':f'{cpu:.0f}%','ram':f'{mem:.0f}%','disk':f'{disk:.0f}%','battery':battery,'temp':temperature,'wifi':wifi}
+            for k,v in values.items():stat_fields[k].configure(text=v)
+            stats_status.set('Live · refreshes every 2 seconds')
+        except Exception as exc:stats_status.set('Stats unavailable: '+str(exc)[:75])
+        root.after(2000,refresh_pc_stats)
+    root.after(600,refresh_pc_stats)
     # Home is a single card, matching the supplied visual reference.
     dash=pages['Home']
     home_card=ctk.CTkFrame(dash,fg_color=CARD,corner_radius=19);home_card.pack(fill='both',expand=True)
@@ -641,12 +691,11 @@ def app():
             nxt.configure(text='Finish' if idx[0]==len(tutorial_pages)-1 else 'Next',
                 command=win.destroy if idx[0]==len(tutorial_pages)-1 else lambda:step(1))
         step()
-    # Keep the requested tutorial accessible without cluttering the screenshot-style home card.
+    # Keep first-run onboarding, without a replay/test button.
     tk.Label(footer,text='Buddy Connect v'+APP_VERSION,bg=BG,fg=MUTED,font=('Segoe UI',9)).pack(side='left')
     ctk.CTkButton(footer,text='↻  Check for updates',command=lambda:show('Advanced'),fg_color='transparent',hover_color='#1e2b3e',text_color=ACC,corner_radius=10,width=150,height=30).pack(side='right')
-    ctk.CTkButton(footer,text='Test Tutorial',command=open_tutorial,fg_color='transparent',hover_color='#1e2b3e',text_color=ACC,corner_radius=10,width=115,height=30).pack(side='right',padx=12)
     show('Home');refresh_remote()
-    # Only auto-show once per user; replay using Test Tutorial.
+    # Only auto-show once per user.
     tutorial_flag=DATA_DIR/'tutorial_v8.2_seen.txt'
     if not tutorial_flag.exists():
         try:

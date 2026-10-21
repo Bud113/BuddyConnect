@@ -1,7 +1,10 @@
-# Buddy Connect v8.2.2
+# Buddy Connect v8.3.0
 
-- Settings sub-tabs now highlight the currently selected section.
-- Update URL field removed. Check for Updates discovers the latest GitHub release automatically.
-- Downloads require a matching SHA-256 in `update.json` (version and URL must match latest release) or a release asset named `BuddyConnect.exe.sha256` containing the 64-character SHA-256.
-- Run `build_windows.bat` on Windows to build `dist/BuddyConnect.exe`.
-- Do not publish an EXE without testing the Windows build.
+- New **PC Stats** dashboard with live CPU, RAM, system drive usage, battery, CPU temperature (if available), and Wi-Fi status. Refreshes every two seconds using psutil.
+- Removed the **Test Tutorial** button. The first-run tutorial remains available to new users.
+- Removed **Show demonstration** from the Buddy OS simulator's PC Companion menu. The simulator now displays actual data only when connected to the local Buddy Connect agent.
+- Existing Home, Appearance, Settings, Organizer, and GitHub updater retained.
+
+## Build on Windows
+
+Extract this ZIP, run `build_windows.bat`, then launch `dist\BuddyConnect.exe`. Keep the `index.html` simulator alongside the project. Test before publishing a release. The PC Stats dashboard runs on the desktop app; the simulator reads the background agent's existing `/stats` endpoint.
